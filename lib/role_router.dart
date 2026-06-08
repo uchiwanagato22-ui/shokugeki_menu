@@ -1,25 +1,24 @@
 import 'package:flutter/material.dart';
 import 'client_menu_screen.dart';
-import 'caissier_dashboard_screen.dart';
 import 'directeur_dashboard_screen.dart';
-import 'livreur_dashboard_screen.dart';
+import 'caissier_dashboard_screen.dart';
+import 'livreur_dashboard_screen.dart'; // <-- NOTRE NOUVEL IMPORT DE CONFIANCE !
 
 class RoleRouter extends StatelessWidget {
-  final String userRole;
+  final String userRole; // "client", "directeur", "caissier", "livreur"
 
   const RoleRouter({super.key, required this.userRole});
 
   @override
   Widget build(BuildContext context) {
-    // Distribution automatique et sécurisée des écrans selon le rôle
-    switch (userRole.toLowerCase()) {
-      case 'directeur':
-        return const DirecteurDashboardScreen();
-      case 'caissier':
+    switch (userRole) {
+      case "directeur":
+        return const DirectorDashboardScreen();
+      case "caissier":
         return const CaissierDashboardScreen();
-      case 'livreur':
-        return const LivreurDashboardScreen();
-      case 'client':
+      case "livreur":
+        return const LivreurDashboardScreen(); // <-- APPEL LE VRAI ÉCRAN ICI
+      case "client":
       default:
         return const ClientMenuScreen();
     }

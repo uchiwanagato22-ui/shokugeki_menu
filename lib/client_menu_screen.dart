@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'constants.dart';
-import 'client_cart_screen.dart';
-import 'chef_ia_screen.dart';
-import 'client_orders_screen.dart'; // Importation du nouvel écran créé ci-dessous
 
 class ClientMenuScreen extends StatefulWidget {
   const ClientMenuScreen({super.key});
@@ -14,97 +10,242 @@ class ClientMenuScreen extends StatefulWidget {
 
 class _ClientMenuScreenState extends State<ClientMenuScreen> {
   String _selectedCategory = "Tout";
-  final List<Map<String, dynamic>> _userCart = [];
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  void _ajouterAuPanier(Map<String, dynamic> plat) {
-    setState(() {
-      int index = _userCart.indexWhere((item) => item["nom"] == plat["nom"]);
-      if (index != -1) {
-        _userCart[index]["quantite"]++;
-      } else {
-        _userCart.add({"nom": plat["nom"], "prix": plat["prix"], "quantite": 1});
-      }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("${plat["nom"]} ajouté au panier ! 🛒"), duration: const Duration(seconds: 1), backgroundColor: kPrimaryColor),
-    );
-  }
+  // Faux catalogue de plats en local pour tester l'UI avant Firebase
+  final List<Map<String, dynamic>> _dummyPlats = [
+    {
+      "id": "p1",
+      "nom": "Shokugeki Burger Max",
+      "categorie": "Burgers",
+      "prix": 250, // Prix en MRU
+      "note": "4.9",
+      "image":
+          "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=500&auto=format&fit=crop"
+    },
+    {
+      "id": "p2",
+      "nom": "Pizza Feu Suprême",
+      "categorie": "Pizzas",
+      "prix": 350,
+      "note": "4.8",
+      "image":
+          "https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=500&auto=format&fit=crop"
+    },
+    {
+      "id": "p3",
+      "nom": "Poulet Croustillant Shinra",
+      "categorie": "Poulet",
+      "prix": 280,
+      "note": "4.7",
+      "image":
+          "https://images.unsplash.com/photo-1562967914-608f82629710?q=80&w=500&auto=format&fit=crop"
+    },
+    {
+      "id": "p4",
+      "nom": "Cocktail Shaker Glacé",
+      "categorie": "Boissons",
+      "prix": 120,
+      "note": "4.5",
+      "image":
+          "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?q=80&w=500&auto=format&fit=crop"
+    },
+  ];
 
   @override
   Widget build(BuildContext context) {
+    // Filtrer les plats selon la catégorie sélectionnée
+    final filteredPlats = _selectedCategory == "Tout"
+        ? _dummyPlats
+        : _dummyPlats
+            .where((p) => p["categorie"] == _selectedCategory)
+            .toList();
+
     return Scaffold(
-      backgroundColor: kBackgroundColor,
+      backgroundColor: const Color(0xFFF8F9FA),
+      // --- BARRE DU HAUT (Header) ---
       appBar: AppBar(
         backgroundColor: Colors.white,
-        title: const Text("SHOKUGEKI MENU", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold)),
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Livraison à",
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+            Row(
+              children: [
+                Icon(Icons.location_on, color: kPrimaryColor, size: 16),
+                const SizedBox(width: 4),
+                const Text("Nouakchott, TVZ",
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: kSecondaryColor)),
+              ],
+            ),
+          ],
+        ),
         actions: [
-          // 🆕 NOUVEAU : Bouton pour voir le suivi de ses commandes en direct
           IconButton(
-            icon: const Icon(Icons.assignment, color: Colors.blue),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ClientOrdersScreen())),
+            icon: const Icon(Icons.shopping_bag_outlined,
+                color: kSecondaryColor, size: 28),
+            onPressed: () {
+              // Action Panier plus tard
+            },
           ),
-          IconButton(
-            icon: const Icon(Icons.shopping_cart, color: kSecondaryColor),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ClientCartScreen(cartItems: _userCart))),
-          ),
+          const SizedBox(width: 12),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: kPrimaryColor,
-        child: const Icon(Icons.support_agent, color: Colors.white),
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChefIaScreen())),
-      ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Liste des catégories
-          Container(
-            height: 60,
-            padding: const EdgeInsets.symmetric(vertical: 10),
+          // --- BARRE DE RECHERCHE ---
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5)),
+                ],
+              ),
+              child: const TextField(
+                decoration: InputDecoration(
+                  hintText: "De quoi avez-vous envie aujourd'hui ?",
+                  prefixIcon: Icon(Icons.search, color: Colors.grey),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 15),
+                ),
+              ),
+            ),
+          ),
+
+          // --- HORIZONTAL CATEGORIES BAR ---
+          SizedBox(
+            height: 50,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: ["Tout", "Burgers", "Plats", "Boissons"].map((cat) {
+              padding: const EdgeInsets.only(left: 16),
+              children: ["Tout", "Burgers", "Pizzas", "Poulet", "Boissons"]
+                  .map((cat) {
                 bool isSelected = _selectedCategory == cat;
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedCategory = cat),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    decoration: BoxDecoration(color: isSelected ? kPrimaryColor : Colors.white, borderRadius: BorderRadius.circular(20)),
-                    child: Text(cat, style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: ChoiceChip(
+                    label: Text(cat),
+                    selected: isSelected,
+                    selectedColor: kPrimaryColor,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : kSecondaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    onSelected: (bool selected) {
+                      setState(() {
+                        _selectedCategory = cat;
+                      });
+                    },
                   ),
                 );
               }).toList(),
             ),
           ),
-          // Menu Dynamique Firestore
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _db.collection('menu').snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: kPrimaryColor));
-                var docs = snapshot.data!.docs;
 
-                return ListView.builder(
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    var plat = docs[index];
-                    return Card(
-                      margin: const EdgeInsets.all(10),
-                      child: ListTile(
-                        title: Text(plat['nom'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text("${plat['prix']} MRU"),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.add_shopping_cart, color: kPrimaryColor),
-                          onPressed: () => _ajouterAuPanier({'nom': plat['nom'], 'prix': plat['prix']}),
+          const SizedBox(height: 16),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text("Le Menu Spécial",
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: kSecondaryColor)),
+          ),
+          const SizedBox(height: 12),
+
+          // --- GRILLE DES PLATS ---
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              itemCount: filteredPlats.length,
+              itemBuilder: (context, index) {
+                final plat = filteredPlats[index];
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5)),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Image du plat
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(16)),
+                          child: Image.network(
+                            plat["image"],
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          ),
                         ),
                       ),
-                    );
-                  },
+                      Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              plat["nom"],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "${plat["prix"]} MRU",
+                                  style: const TextStyle(
+                                      color: kPrimaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: kSecondaryColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.add,
+                                      color: Colors.white, size: 16),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      )
+                    ],
+                  ),
                 );
               },
             ),
-          )
+          ),
         ],
       ),
     );
