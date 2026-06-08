@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "591627114214",
+    "firebase_url": "https://shokugeki-menu-default-rtdb.firebaseio.com",
+    "project_id": "shokugeki-menu",
+    "storage_bucket": "shokugeki-menu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:591627114214:android:d0b8b5887d9328cc078d27",
+        "android_client_info": {
+          "package_name": "com.nagatodev.shokugeki_menu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWkRob5TLr2qRs1cPxZcY8R83c_i6RaXI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
