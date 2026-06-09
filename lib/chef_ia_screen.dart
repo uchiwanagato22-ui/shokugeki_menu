@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'branding_service.dart';
 import 'constants.dart';
+import 'gemini_service.dart';
 
 class ChefIaScreen extends StatefulWidget {
   const ChefIaScreen({super.key});
@@ -10,57 +11,59 @@ class ChefIaScreen extends StatefulWidget {
 }
 
 class _ChefIaScreenState extends State<ChefIaScreen> {
-  // Clé API de ton projet
-  final String geminiApiKey = "AIzaSyAta2x-jysyl2Md5IC_BWO_rteKLyXj-nE";
-
   final TextEditingController _messageController = TextEditingController();
-  final List<Map<String, String>> _messages = [
-    {
-      "role": "assistant",
-      "message": "Bienvenue dans les cuisines de Shokugeki ! 🍳 Je suis le Chef IA. Quel plat puis-je vous conseiller ou quelle création voulez-vous adapter à vos goûts ce soir ?"
-    }
-  ];
+  late List<Map<String, String>> _messages;
   bool _isLoading = false;
-  late GenerativeModel _model;
 
   @override
   void initState() {
     super.initState();
-    // Utilisation du modèle 1.5 flash ultra rapide
-    _model = GenerativeModel(
-      model: 'gemini-1.5-flash',
-      apiKey: geminiApiKey,
-    );
+    final brand = BrandingData.defaults();
+    _messages = [
+      {
+        "role": "assistant",
+        "message":
+            "Bienvenue chez ${brand.nom} ! 🍳 Je suis le Chef IA. Quel plat puis-je vous conseiller ce soir ?"
+      }
+    ];
   }
 
   void _envoyerMessage() async {
-    String messageText = _messageController.text.trim();
-    if (messageText.isEmpty) return;
+    final gemini = GeminiService();
+
+    final userText = _messageController.text.trim();
+    if (userText.isEmpty) return;
 
     setState(() {
-      _messages.add({"role": "user", "message": messageText});
+      _messages.add({"role": "user", "message": userText});
+      _messageController.clear();
       _isLoading = true;
     });
-    _messageController.clear();
 
     try {
-      final content = [Content.text(messageText)];
-      final response = await _model.generateContent(content);
-      
+      // Prompt : tu peux l’améliorer ensuite, mais déjà ça utilise Gemini.
+      final brand = BrandingData.defaults();
+      final prompt = [
+        "Tu es le Chef IA de ${brand.nom}, un service de livraison de repas à ${brand.ville}.",
+        "Réponds en FR, ton style est chaleureux et très court.",
+        "Si l'utilisateur demande un plat, propose 2-3 plats avec prix et justification.",
+        "Si l'utilisateur parle de promo, offres, gratuit, livraison : répond avec une offre fictive réaliste.",
+        "Question utilisateur : $userText",
+      ].join("\n");
+
+      final botResponse = await gemini.generateText(prompt);
+
       setState(() {
+        _messages.add({"role": "assistant", "message": botResponse});
         _isLoading = false;
-        _messages.add({
-          "role": "assistant",
-          "message": response.text ?? "Désolé, je n'ai pas pu générer de suggestion culinaire."
-        });
       });
     } catch (e) {
       setState(() {
-        _isLoading = false;
         _messages.add({
           "role": "assistant",
-          "message": "Erreur lors de la communication avec les cuisines de Gemini. ❌"
+          "message": "Erreur Gemini : ${e.toString()}"
         });
+        _isLoading = false;
       });
     }
   }
@@ -68,13 +71,19 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF111115),
+      backgroundColor: const Color(0xFF111115), // Thème sombre cuisine
       appBar: AppBar(
         backgroundColor: const Color(0xFF1A1A22),
-        elevation: 0,
-        title: const Text(
-          "CHEF IA CULINAIRE",
-          style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+        title: const Row(
+          children: [
+            Icon(Icons.psychology, color: kPrimaryColor),
+            SizedBox(width: 10),
+            Text("LE CHEF IA SHOKUGEKI",
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold)),
+          ],
         ),
       ),
       body: Column(
@@ -86,28 +95,33 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
               itemBuilder: (context, index) {
                 final msg = _messages[index];
                 bool isUser = msg["role"] == "user";
+
                 return Align(
-                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment:
+                      isUser ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
-                    maxWidth: MediaQuery.of(context).size.width * 0.75,
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: isUser ? kPrimaryColor : const Color(0xFF22222B),
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(16),
-                        topRight: const Radius.circular(16),
-                        bottomLeft: Radius.circular(isUser ? 16 : 0),
-                        bottomRight: Radius.circular(isUser ? 0 : 16),
+                      color: isUser ? kPrimaryColor : const Color(0xFF1A1A22),
+                      borderRadius: BorderRadius.circular(16).copyWith(
+                        bottomRight: isUser
+                            ? const Radius.circular(0)
+                            : const Radius.circular(16),
+                        topLeft: !isUser
+                            ? const Radius.circular(0)
+                            : const Radius.circular(16),
                       ),
                     ),
+                    constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * 0.75),
                     child: Text(
                       msg["message"]!,
                       style: TextStyle(
-                        color: isUser ? Colors.black : Colors.white, 
-                        fontSize: 14, 
-                        fontWeight: isUser ? FontWeight.bold : FontWeight.normal, // CORRIGÉ ET STABILISÉ ICI
-                      ),
+                          color: isUser ? Colors.black : Colors.white,
+                          fontSize: 14,
+                          fontWeight:
+                              isUser ? FontWeight.bold : FontWeight.normal),
                     ),
                   ),
                 );
@@ -117,7 +131,8 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.only(bottom: 8.0),
-              child: Center(child: CircularProgressIndicator(color: kPrimaryColor)),
+              child: Center(
+                  child: CircularProgressIndicator(color: kPrimaryColor)),
             ),
           Container(
             padding: const EdgeInsets.all(12),
@@ -128,9 +143,10 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
                   child: TextField(
                     controller: _messageController,
                     style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      hintText: "Posez votre question culinaire au Chef...",
-                      hintStyle: TextStyle(color: Colors.grey),
+                    decoration: InputDecoration(
+                      hintText:
+                          "Demandez au Chef... (ex: Plat le moins cher ?)",
+                      hintStyle: const TextStyle(color: Colors.grey),
                       border: InputBorder.none,
                     ),
                     onSubmitted: (_) => _envoyerMessage(),

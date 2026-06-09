@@ -4,18 +4,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'login_screen.dart';
 import 'constants.dart';
+import 'notification_service.dart';
+import 'splash_screen.dart';
+import 'widgets/restaurant_logo.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialisation de ton Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  runApp(const ShokugekiMenuApp());
+  await NotificationService.instance.init();
+  runApp(const RestaurantApp());
 }
 
-class ShokugekiMenuApp extends StatelessWidget {
-  const ShokugekiMenuApp({super.key});
+class RestaurantApp extends StatelessWidget {
+  const RestaurantApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,61 +33,62 @@ class ShokugekiMenuApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      // 🔒 ÉCOUTE EN TEMPS RÉEL DE TON INTERRUPTEUR FIRESTORE
-      home: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('configuration')
-            .doc('statut')
-            .snapshots(),
-        builder: (context, snapshot) {
-          // Écran d'attente pendant que Firebase charge
-          if (!snapshot.hasData) {
-            return const Scaffold(
-              backgroundColor: Color(0xFF111115),
-              body: Center(
-                child: CircularProgressIndicator(color: kPrimaryColor),
-              ),
-            );
-          }
+      home: SplashScreen(child: const _AppGatekeeper()),
+    );
+  }
+}
 
-          // Extraction des données du document 'statut'
-          var data = snapshot.data!.data() as Map<String, dynamic>?;
-          bool isActive = data?['is_active'] ?? true;
-          String messageBlocage = data?['message_blocage'] ?? "Service temporairement indisponible. Veuillez contacter l'administrateur.";
+class _AppGatekeeper extends StatelessWidget {
+  const _AppGatekeeper();
 
-          // 🚨 SI TU METS FAUX (false) SUR FIRESTORE : L'APPLICATION SE COUPE DIRECTEMENT
-          if (!isActive) {
-            return Scaffold(
-              backgroundColor: const Color(0xFF7F1D1D), // Rouge sombre
-              body: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.block_rounded, size: 90, color: Colors.white),
-                      const SizedBox(height: 24),
-                      Text(
-                        messageBlocage,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('configuration').doc('statut').snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Scaffold(
+            backgroundColor: kSecondaryColor,
+            body: Center(child: CircularProgressIndicator(color: kPrimaryColor)),
+          );
+        }
+
+        var data = snapshot.data!.data() as Map<String, dynamic>?;
+        bool isActive = data?['is_active'] ?? true;
+        String messageBlocage = data?['message_blocage'] ??
+            "Service temporairement indisponible. Veuillez contacter l'administrateur.";
+
+        if (!isActive) {
+          return Scaffold(
+            backgroundColor: const Color(0xFF7F1D1D),
+            body: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const RestaurantLogo(size: 70),
+                    const SizedBox(height: 24),
+                    const Icon(Icons.block_rounded, size: 60, color: Colors.white70),
+                    const SizedBox(height: 16),
+                    Text(
+                      messageBlocage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            );
-          }
+            ),
+          );
+        }
 
-          // ✅ SI C'EST VRAI (true) : L'APPLI CONTINUE NORMALEMENT VERS LE LOGIN
-          return const LoginScreen();
-        },
-      ),
+        return const LoginScreen();
+      },
     );
   }
 }

@@ -22,6 +22,13 @@ dependencies:
   firebase_core: ^4.10.0
   cloud_firestore: ^6.5.0
   firebase_auth: ^6.5.2
+  firebase_storage: ^13.1.0
+  firebase_messaging: ^16.1.2
+
+  # Photos & Notifications
+  image_picker: ^1.1.2
+  flutter_local_notifications: ^19.2.1
+  shared_preferences: ^2.5.3
 
   # Localisation & Cartographie (Pour l'adresse et le livreur)
   google_maps_flutter: ^2.11.0

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart'; // 👈 Importation cruciale pour le GPS
 import 'constants.dart';
+import 'restaurant_config.dart';
 
 class LivreurDashboardScreen extends StatefulWidget {
   const LivreurDashboardScreen({super.key});
@@ -17,7 +18,7 @@ class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
   // 🗺️ FONCTION MAGIQUE POUR OUVRIR GOOGLE MAPS
   Future<void> _ouvrirMaps(String adresse) async {
     // On ajoute ", Nouakchott" pour s'assurer que Google Maps cherche au bon endroit
-    final String query = Uri.encodeComponent("$adresse, Nouakchott");
+    final String query = Uri.encodeComponent("$adresse, ${RestaurantConfig.mapsCitySuffix}");
     final Uri googleMapsUrl =
         Uri.parse("https://www.google.com/maps/search/?api=1&query=$query");
 

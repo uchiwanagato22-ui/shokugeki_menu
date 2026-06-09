@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'constants.dart';
 import 'director_ia_service.dart';
+import 'menu_management_screen.dart';
+import 'branding_settings_screen.dart';
+import 'branding_service.dart';
 
 class DirecteurDashboardScreen extends StatefulWidget {
   const DirecteurDashboardScreen({super.key});
@@ -13,6 +16,7 @@ class DirecteurDashboardScreen extends StatefulWidget {
 class _DirecteurDashboardScreenState extends State<DirecteurDashboardScreen> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final DirectorIaService _shinraIa = DirectorIaService();
+  final BrandingService _branding = BrandingService();
   
   bool _isIaLoading = false;
   String _iaReport = "Cliquez sur le bouton ci-dessus pour lancer l'analyse prédictive de Shinra.ia en temps réel.";
@@ -33,7 +37,13 @@ class _DirecteurDashboardScreenState extends State<DirecteurDashboardScreen> {
       backgroundColor: const Color(0xFF111115),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1A1A22),
-        title: const Text("EMPIRE SHOKUGEKI (Directeur)", style: TextStyle(color: kAccentColor, fontWeight: FontWeight.bold)),
+        title: StreamBuilder<BrandingData>(
+          stream: _branding.watchBranding(),
+          builder: (context, snap) {
+            final nom = snap.data?.nom ?? kAppName;
+            return Text("$nom (Directeur)", style: const TextStyle(color: kAccentColor, fontWeight: FontWeight.bold, fontSize: 16));
+          },
+        ),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _db.collection('commandes').snapshots(),
@@ -81,6 +91,64 @@ class _DirecteurDashboardScreenState extends State<DirecteurDashboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: const Color(0xFF1A1A22), borderRadius: BorderRadius.circular(12)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("IDENTITÉ & MARQUE", style: TextStyle(color: kAccentColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      const Text(
+                        "Nom, slogan, promo, frais de livraison — tout se gère ici.",
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const BrandingSettingsScreen()),
+                        ),
+                        icon: const Icon(Icons.storefront, color: Colors.black),
+                        label: const Text("Personnaliser le restaurant", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kAccentColor,
+                          minimumSize: const Size(double.infinity, 45),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: const Color(0xFF1A1A22), borderRadius: BorderRadius.circular(12)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("GESTION DU MENU", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      const Text(
+                        "Ajoutez, modifiez ou désactivez vos plats directement depuis l'app.",
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MenuManagementScreen()),
+                        ),
+                        icon: const Icon(Icons.restaurant_menu, color: Colors.black),
+                        label: const Text("Gérer le menu", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kPrimaryColor,
+                          minimumSize: const Size(double.infinity, 45),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(color: const Color(0xFF1A1A22), borderRadius: BorderRadius.circular(12)),

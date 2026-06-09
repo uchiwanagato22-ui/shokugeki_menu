@@ -7,6 +7,10 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+      # Sécurise la clé Gemini : ne doit pas être commit dans le repo.
+      # Dans Codemagic UI, tu peux aussi définir cette variable.
+      GEMINI_API_KEY: $GEMINI_API_KEY
+
     triggering:
       events:
         - push
@@ -21,7 +25,7 @@ workflows:
           flutter pub get
       - name: Build Android APK
         script: |
-          flutter build apk --release
+          flutter build apk --release --dart-define=GEMINI_API_KEY=$GEMINI_API_KEY
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk
     publishing:

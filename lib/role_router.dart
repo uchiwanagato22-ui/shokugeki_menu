@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'client_menu_screen.dart';
+import 'client_home_screen.dart';
 import 'directeur_dashboard_screen.dart';
 import 'caissier_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart'; // <-- NOTRE NOUVEL IMPORT DE CONFIANCE !
@@ -13,14 +13,14 @@ class RoleRouter extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (userRole) {
       case "directeur":
-        return const DirectorDashboardScreen();
+        return const DirecteurDashboardScreen();
       case "caissier":
         return const CaissierDashboardScreen();
       case "livreur":
         return const LivreurDashboardScreen(); // <-- APPEL LE VRAI ÉCRAN ICI
       case "client":
       default:
-        return const ClientMenuScreen();
+        return const ClientHomeScreen();
     }
   }
 }
