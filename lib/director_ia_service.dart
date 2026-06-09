@@ -55,6 +55,7 @@ class DirectorIaService {
         return "Voici le rapport flash de ${RestaurantConfig.name}, Chef :\n\n"
             "• Chiffre d'affaires : **$chiffreAffaires MRU**\n"
             "• Commandes en attente : **$commandesAttente**\n"
+            "• Commandes livrées : **$commandesLivrees**\n"
             "• Total commandes enregistrées : **${docs.length}**\n\n"
             "Tout tourne correctement à ${RestaurantConfig.city} ! 🚀";
       }

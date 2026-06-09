@@ -13,7 +13,7 @@ class RoleRouter extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (userRole) {
       case "directeur":
-        return const DirecteurDashboardScreen();
+        return const DirectorDashboardScreen();
       case "caissier":
         return const CaissierDashboardScreen();
       case "livreur":

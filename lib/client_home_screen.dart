@@ -36,12 +36,14 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     super.dispose();
   }
 
-  int get _cartCount => _cartItems.fold(0, (t, i) => t + (i['quantite'] as int));
+  int get _cartCount =>
+      _cartItems.fold(0, (t, i) => t + (i['quantite'] as int));
 
   void _ouvrirPanier() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => ClientCartScreen(cartItems: _cartItems)),
+      MaterialPageRoute(
+          builder: (_) => ClientCartScreen(cartItems: _cartItems)),
     ).then((_) => setState(() {}));
   }
 
@@ -66,12 +68,15 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         backgroundColor: Colors.white,
-        indicatorColor: kPrimaryColor.withValues(alpha: 0.15),
+        indicatorColor: kPrimaryColor.withOpacity(0.15),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.restaurant_menu), label: "Menu"),
-          NavigationDestination(icon: Icon(Icons.receipt_long), label: "Commandes"),
+          NavigationDestination(
+              icon: Icon(Icons.restaurant_menu), label: "Menu"),
+          NavigationDestination(
+              icon: Icon(Icons.receipt_long), label: "Commandes"),
           NavigationDestination(icon: Icon(Icons.psychology), label: "Chef IA"),
-          NavigationDestination(icon: Icon(Icons.info_outline), label: "Contact"),
+          NavigationDestination(
+              icon: Icon(Icons.info_outline), label: "Contact"),
         ],
       ),
       floatingActionButton: _index == 0 && _cartCount > 0
@@ -79,7 +84,9 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               onPressed: _ouvrirPanier,
               backgroundColor: kPrimaryColor,
               icon: const Icon(Icons.shopping_bag, color: Colors.white),
-              label: Text("Panier ($_cartCount)", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              label: Text("Panier ($_cartCount)",
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
             )
           : null,
     );

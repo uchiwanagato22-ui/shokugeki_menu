@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
-import 'restaurant_config.dart';
 
-const String kAppName = RestaurantConfig.name;
+// --- INFOS GLOBALES DE L'APPLICATION ---
+const String kAppName = "Shokugeki Menu";
 
-// --- CODES PIN (définis dans restaurant_config.dart) ---
-const String kCodeDirecteur = RestaurantConfig.codeDirecteur;
-const String kCodeCaissier = RestaurantConfig.codeCaissier;
-const String kCodeLivreur = RestaurantConfig.codeLivreur;
+// --- PALETTE DE COULEURS (valeurs par défaut) ---
+const Color kPrimaryColor = Color(0xFF1E88E5); // bleu
+const Color kSecondaryColor = Color(0xFF374151); // gris foncé
+const Color kBackgroundColor = Color(0xFF0F1724); // fond sombre
+const Color kAccentColor = Color(0xFFFFC107); // accent (jaune/ambre)
 
-// --- CHARTE COULEURS (définies dans restaurant_config.dart) ---
-const Color kPrimaryColor = RestaurantConfig.primaryColor;
-const Color kSecondaryColor = RestaurantConfig.secondaryColor;
-const Color kAccentColor = RestaurantConfig.accentColor;
-const Color kBackgroundColor = Color(0xFFF8F9FA);
-
-// --- CATÉGORIES PAR DÉFAUT DU MENU ---
 const List<String> kDefaultCategories = [
-  "Burgers",
-  "Pizzas",
-  "Poulet",
-  "Boissons",
-  "Desserts",
-  "Divers",
+  'Tout',
+  'Burgers',
+  'Pizzas',
+  'Poulet',
+  'Boissons',
+  'Desserts',
+  'Divers',
 ];
+
+// --- CODES PIN SECRETS DU PERSONNEL ---
+const String kCodeDirecteur = "3265";
+const String kCodeCaissier = "2300";
+const String kCodeLivreur = "3223";

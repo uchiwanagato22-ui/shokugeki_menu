@@ -12,11 +12,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await NotificationService.instance.init();
-  runApp(const RestaurantApp());
+  runApp(const ShokugekiMenuApp());
 }
 
-class RestaurantApp extends StatelessWidget {
-  const RestaurantApp({super.key});
+class ShokugekiMenuApp extends StatelessWidget {
+  const ShokugekiMenuApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -44,12 +44,16 @@ class _AppGatekeeper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('configuration').doc('statut').snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('configuration')
+          .doc('statut')
+          .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return Scaffold(
             backgroundColor: kSecondaryColor,
-            body: Center(child: CircularProgressIndicator(color: kPrimaryColor)),
+            body:
+                Center(child: CircularProgressIndicator(color: kPrimaryColor)),
           );
         }
 
@@ -69,7 +73,8 @@ class _AppGatekeeper extends StatelessWidget {
                   children: [
                     const RestaurantLogo(size: 70),
                     const SizedBox(height: 24),
-                    const Icon(Icons.block_rounded, size: 60, color: Colors.white70),
+                    const Icon(Icons.block_rounded,
+                        size: 60, color: Colors.white70),
                     const SizedBox(height: 16),
                     Text(
                       messageBlocage,
