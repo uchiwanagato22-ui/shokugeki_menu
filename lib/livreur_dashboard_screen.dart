@@ -76,7 +76,7 @@ class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
                       fontWeight: FontWeight.bold)),
               Switch(
                 value: _isAvailable,
-                activeColor: Colors.green,
+                activeThumbColor: Colors.green,
                 onChanged: (val) => setState(() => _isAvailable = val),
               ),
             ],
@@ -99,10 +99,11 @@ class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
                   ? StreamBuilder<QuerySnapshot>(
                       stream: _db.collection('commandes').snapshots(),
                       builder: (context, snapshot) {
-                        if (!snapshot.hasData)
+                        if (!snapshot.hasData) {
                           return const Center(
                               child: CircularProgressIndicator(
                                   color: kPrimaryColor));
+                        }
 
                         final filtrerDocs = snapshot.data!.docs.where((doc) {
                           String status = doc['statut'] ?? '';

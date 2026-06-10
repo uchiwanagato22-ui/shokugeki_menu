@@ -196,7 +196,7 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
-                          value: _paymentMethod,
+                          initialValue: _paymentMethod,
                           decoration: const InputDecoration(labelText: "Moyen de paiement"),
                           items: ["Cash", "Bankily", "Masrvi"]
                               .map((m) => DropdownMenuItem(value: m, child: Text(m)))

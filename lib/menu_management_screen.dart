@@ -134,7 +134,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     const Text("Catégorie", style: TextStyle(color: Colors.grey, fontSize: 12)),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
-                      value: categorie,
+                      initialValue: categorie,
                       dropdownColor: const Color(0xFF2A2A32),
                       style: const TextStyle(color: Colors.white),
                       decoration: _inputDecoration(),
@@ -149,7 +149,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                       title: const Text("Visible sur le menu client",
                           style: TextStyle(color: Colors.white)),
                       value: disponible,
-                      activeColor: Colors.green,
+                      activeThumbColor: Colors.green,
                       onChanged: (val) => setModalState(() => disponible = val),
                     ),
                     const SizedBox(height: 16),
@@ -180,7 +180,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                               try {
                                 if (isEdition) {
                                   await _firestore.modifierPlat(
-                                    id: plat!['id'],
+                                    id: plat['id'],
                                     nom: nom,
                                     description: descController.text.trim(),
                                     prix: prix,
@@ -406,7 +406,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                         children: [
                           Switch(
                             value: disponible,
-                            activeColor: Colors.green,
+                            activeThumbColor: Colors.green,
                             onChanged: (val) =>
                                 _firestore.basculerDisponibilite(plat['id'], val),
                           ),

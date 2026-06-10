@@ -170,7 +170,7 @@ class _BrandingSettingsScreenState extends State<BrandingSettingsScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text("Afficher le bandeau promo", style: TextStyle(color: Colors.white)),
                     value: _promoActive,
-                    activeColor: Colors.green,
+                    activeThumbColor: Colors.green,
                     onChanged: (v) => setState(() => _promoActive = v),
                   ),
                   const SizedBox(height: 20),
