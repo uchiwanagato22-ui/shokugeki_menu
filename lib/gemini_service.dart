@@ -1,11 +1,8 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
-import 'config/api_keys.dart';
 
 class GeminiService {
-  static String get _apiKey {
-    if (geminiApiKey.isNotEmpty) return geminiApiKey;
-    return const String.fromEnvironment('GEMINI_API_KEY');
-  }
+  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static bool get isConfigured => _apiKey.isNotEmpty;
 
   final GenerativeModel _model;
 

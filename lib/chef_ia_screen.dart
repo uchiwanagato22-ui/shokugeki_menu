@@ -28,11 +28,40 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
     ];
   }
 
-  void _envoyerMessage() async {
-    final gemini = GeminiService();
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
 
+  void _addMessage(String role, String message) {
+    _messages.add({"role": role, "message": message});
+  }
+
+  String _buildPrompt(String userText) {
+    final brand = BrandingData.defaults();
+    return [
+      "Tu es le Chef IA de ${brand.nom}, un service de livraison de repas à ${brand.ville}.",
+      "Réponds en FR, ton style est chaleureux et très court.",
+      "Si l'utilisateur demande un plat, propose 2-3 plats avec prix et justification.",
+      "Si l'utilisateur parle de promo, offres, gratuit, livraison : répond avec une offre fictive réaliste.",
+      "Question utilisateur : $userText",
+    ].join("\n");
+  }
+
+  void _envoyerMessage() async {
     final userText = _messageController.text.trim();
     if (userText.isEmpty) return;
+
+    if (!GeminiService.isConfigured) {
+      setState(() {
+        _addMessage(
+            "assistant", "Chef IA indisponible : clé Gemini non configurée.");
+      });
+      return;
+    }
+
+    final gemini = GeminiService();
 
     setState(() {
       _messages.add({"role": "user", "message": userText});
@@ -41,16 +70,7 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
     });
 
     try {
-      // Prompt : tu peux l’améliorer ensuite, mais déjà ça utilise Gemini.
-      final brand = BrandingData.defaults();
-      final prompt = [
-        "Tu es le Chef IA de ${brand.nom}, un service de livraison de repas à ${brand.ville}.",
-        "Réponds en FR, ton style est chaleureux et très court.",
-        "Si l'utilisateur demande un plat, propose 2-3 plats avec prix et justification.",
-        "Si l'utilisateur parle de promo, offres, gratuit, livraison : répond avec une offre fictive réaliste.",
-        "Question utilisateur : $userText",
-      ].join("\n");
-
+      final prompt = _buildPrompt(userText);
       final botResponse = await gemini.generateText(prompt);
 
       setState(() {
