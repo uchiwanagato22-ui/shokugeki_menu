@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationService {
   NotificationService._();
@@ -18,10 +17,12 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
 
-    const android = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const initializationSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/launcher_icon'),
+    );
 
     await _local.initialize(
-      const InitializationSettings(android: android),
+      settings: initializationSettings,
     );
 
     await _local
@@ -43,69 +44,45 @@ class NotificationService {
         await FirebaseFirestore.instance
             .collection('utilisateurs')
             .doc(uid)
-            .set(
-          {
-            'fcm_token': token,
-            'derniere_connexion': FieldValue.serverTimestamp()
-          },
-          SetOptions(merge: true),
-        );
+            .update({'fcm_token': token});
       }
-    } catch (_) {}
+    } catch (e) {
+      print("Erreur token FCM : $e");
+    }
   }
 
   void demarrerSuiviCommandes() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null || uid == _watchedUid) return;
-    _watchedUid = uid;
+    if (uid == null || _watchedUid == uid) return;
 
+    _watchedUid = uid;
     FirebaseFirestore.instance
         .collection('commandes')
-        .where('client_uid', isEqualTo: uid)
+        .where('phone',
+            isNotEqualTo: '') // Juste pour filtrer un champ existant
         .snapshots()
-        .listen(_traiterChangements);
+        .listen((snapshot) {
+      for (var doc in snapshot.docChanges) {
+        if (doc.type == DocumentChangeType.modified) {
+          final data = doc.doc.data() as Map<String, dynamic>;
+          final statut = data['statut'] ?? '';
+          final cmdId = doc.doc.id.substring(0, 5);
+
+          final message = _messagePourStatut(statut, cmdId);
+          if (message != null) {
+            _afficher(
+              id: doc.doc.id.hashCode,
+              titre: message.titre,
+              corps: message.corps,
+            );
+          }
+        }
+      }
+    });
   }
 
   void arreterSuivi() {
     _watchedUid = null;
-  }
-
-  Future<void> _traiterChangements(QuerySnapshot snapshot) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    for (final doc in snapshot.docChanges) {
-      if (doc.type == DocumentChangeType.added ||
-          doc.type == DocumentChangeType.modified) {
-        final data = doc.doc.data() as Map<String, dynamic>? ?? {};
-        final statut = data['statut'] ?? '';
-        final cmdId = doc.doc.id.substring(0, 5).toUpperCase();
-        final cle = 'statut_${doc.doc.id}';
-        final ancien = prefs.getString(cle);
-
-        if (ancien == statut) continue;
-        await prefs.setString(cle, statut);
-
-        if (doc.type == DocumentChangeType.added &&
-            statut == 'En attente de validation') {
-          await _afficher(
-            id: doc.doc.id.hashCode,
-            titre: "Commande envoyée ✅",
-            corps: "Commande #$cmdId reçue. En attente de validation.",
-          );
-          continue;
-        }
-
-        if (doc.type == DocumentChangeType.modified) {
-          final message = _messagePourStatut(statut, cmdId);
-          if (message != null) {
-            await _afficher(
-                id: doc.doc.id.hashCode,
-                titre: message.titre,
-                corps: message.corps);
-          }
-        }
-      }
-    }
   }
 
   ({String titre, String corps})? _messagePourStatut(
@@ -138,18 +115,19 @@ class NotificationService {
 
   Future<void> _afficher(
       {required int id, required String titre, required String corps}) async {
-    const details = AndroidNotificationDetails(
+    const androidDetails = AndroidNotificationDetails(
       'commandes_channel',
       'Suivi des commandes',
-      channelDescription: 'Notifications de statut de commande',
-      importance: Importance.high,
+      importance: Importance.max,
       priority: Priority.high,
     );
+
+    // CORRECTION : Utilisation complète des arguments nommés exigés par le package
     await _local.show(
-      id,
-      titre,
-      corps,
-      const NotificationDetails(android: details),
+      id: id,
+      title: titre,
+      body: corps,
+      notificationDetails: const NotificationDetails(android: androidDetails),
     );
   }
 }

@@ -27,12 +27,13 @@ dependencies:
 
   # Photos & Notifications
   image_picker: ^1.1.2
-  flutter_local_notifications: ^19.2.1
+  cached_network_image: ^3.3.1
+  flutter_local_notifications: ^22.0.0
   shared_preferences: ^2.5.3
 
   # Localisation & Cartographie (Pour l'adresse et le livreur)
   google_maps_flutter: ^2.11.0
-  geolocator: ^13.0.0
+  geolocator: ^14.0.2
   url_launcher: ^6.3.1
 
   # Intelligence Artificielle (Moteur officiel Google Gemini pour le Chef IA)

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'constants.dart';
+import 'firestore_service.dart';
+import 'widgets/plat_detail_sheet.dart';
 
 class ClientMenuScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
@@ -21,242 +24,249 @@ class ClientMenuScreen extends StatefulWidget {
 
 class _ClientMenuScreenState extends State<ClientMenuScreen> {
   String _selectedCategory = "Tout";
-
-  // Faux catalogue de plats en local pour tester l'UI avant Firebase
-  final List<Map<String, dynamic>> _dummyPlats = [
-    {
-      "id": "p1",
-      "nom": "Shokugeki Burger Max",
-      "categorie": "Burgers",
-      "prix": 250, // Prix en MRU
-      "note": "4.9",
-      "image":
-          "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=500&auto=format&fit=crop"
-    },
-    {
-      "id": "p2",
-      "nom": "Pizza Feu Suprême",
-      "categorie": "Pizzas",
-      "prix": 350,
-      "note": "4.8",
-      "image":
-          "https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=500&auto=format&fit=crop"
-    },
-    {
-      "id": "p3",
-      "nom": "Poulet Croustillant Shinra",
-      "categorie": "Poulet",
-      "prix": 280,
-      "note": "4.7",
-      "image":
-          "https://images.unsplash.com/photo-1562967914-608f82629710?q=80&w=500&auto=format&fit=crop"
-    },
-    {
-      "id": "p4",
-      "nom": "Cocktail Shaker Glacé",
-      "categorie": "Boissons",
-      "prix": 120,
-      "note": "4.5",
-      "image":
-          "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?q=80&w=500&auto=format&fit=crop"
-    },
-  ];
+  final FirestoreService _firestoreService = FirestoreService(); // Instance de ton service
 
   @override
   Widget build(BuildContext context) {
-    // Filtrer les plats selon la catégorie sélectionnée
-    final filteredPlats = _selectedCategory == "Tout"
-        ? _dummyPlats
-        : _dummyPlats
-            .where((p) => p["categorie"] == _selectedCategory)
-            .toList();
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      // --- BARRE DU HAUT (Header) ---
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Column(
+      backgroundColor: kBackgroundColor,
+      body: SafeArea(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Livraison à",
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
-            Row(
-              children: [
-                Icon(Icons.location_on, color: kPrimaryColor, size: 16),
-                const SizedBox(width: 4),
-                const Text("Nouakchott, TVZ",
-                    style: TextStyle(
-                        fontSize: 14,
+            // --- EN-TÊTE DU MENU ---
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Notre Menu 🍽️",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        "Fait maison, livré rapidement",
+                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                  if (widget.cartCount > 0)
+                    IconButton(
+                      icon: const Icon(Icons.shopping_cart, color: kPrimaryColor),
+                      onPressed: widget.onOpenCart,
+                    ),
+                ],
+              ),
+            ),
+
+            // --- BARRE DE CATÉGORIES ---
+            SizedBox(
+              height: 50,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: kDefaultCategories.length,
+                itemBuilder: (context, index) {
+                  String cat = kDefaultCategories[index];
+                  bool isSelected = _selectedCategory == cat;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      label: Text(cat),
+                      selected: isSelected,
+                      onSelected: (val) {
+                        if (val) setState(() => _selectedCategory = cat);
+                      },
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.black : Colors.white,
                         fontWeight: FontWeight.bold,
-                        color: kSecondaryColor)),
-              ],
+                      ),
+                      backgroundColor: const Color(0xFF1A1A22),
+                      selectedColor: kAccentColor,
+                      side: BorderSide.none,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // --- LISTE DES PLATS DYNAMIQUE (STREAMBUILDER) ---
+            Expanded(
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _firestoreService.obtenirLeMenu(), // Ton flux de données Firebase
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return const Center(
+                      child: Text("Erreur de chargement du menu ❌",
+                          style: TextStyle(color: Colors.red)),
+                    );
+                  }
+
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: kPrimaryColor),
+                    );
+                  }
+
+                  final tousLesPlats = snapshot.data ?? [];
+
+                  // Filtrer les plats selon la catégorie sélectionnée ET leur disponibilité
+                  final platsFiltres = tousLesPlats.where((plat) {
+                    // Masquer le plat si le gérant l'a marqué comme indisponible
+                    bool dispo = plat['disponible'] ?? true;
+                    if (!dispo) return false;
+
+                    if (_selectedCategory == "Tout") return true;
+                    return plat['categorie'] == _selectedCategory;
+                  }).toList();
+
+                  if (platsFiltres.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        "Aucun plat disponible dans cette catégorie. 🍕",
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+                    );
+                  }
+
+                  // Grille des plats
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 14,
+                      mainAxisSpacing: 14,
+                      childAspectRatio: 0.78,
+                    ),
+                    itemCount: platsFiltres.length,
+                    itemBuilder: (context, index) {
+                      final plat = platsFiltres[index];
+                      final hasImage = plat['image'] != null && plat['image'].toString().isNotEmpty;
+
+                      return InkWell(
+                        onTap: () {
+                          // Ouvre la feuille de détails présente dans ton fichier plat_detail_sheet.dart
+                          afficherDetailPlat(
+                            context,
+                            plat: plat,
+                            onAjouter: () {
+                              // Logique d'ajout au panier existante
+                              final existingIndex = widget.cartItems.indexWhere((item) => item['id'] == plat['id']);
+                              if (existingIndex >= 0) {
+                                widget.cartItems[existingIndex]['quantite']++;
+                              } else {
+                                widget.cartItems.add({
+                                  'id': plat['id'],
+                                  'nom': plat['nom'],
+                                  'prix': plat['prix'],
+                                  'quantite': 1,
+                                });
+                              }
+                              widget.onCartChanged();
+                            },
+                          );
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A1A22),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withOpacity(0.03)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Image du plat avec mise en cache
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                  child: hasImage
+                                      ? CachedNetworkImage(
+                                          imageUrl: plat['image'],
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) => Container(
+                                            color: const Color(0xFF2A2A32),
+                                            child: const Center(
+                                              child: CircularProgressIndicator(color: kPrimaryColor, strokeWidth: 2),
+                                            ),
+                                          ),
+                                          errorWidget: (context, url, error) => _placeholderImage(),
+                                        )
+                                      : _placeholderImage(),
+                                ),
+                              ),
+                              
+                              // Infos du plat
+                              Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      plat['nom'] ?? '',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          "${plat['prix']} MRU",
+                                          style: const TextStyle(
+                                              color: kPrimaryColor,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: const BoxDecoration(
+                                            color: kSecondaryColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(Icons.add,
+                                              color: Colors.white, size: 14),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_bag_outlined,
-                color: kSecondaryColor, size: 28),
-            onPressed: widget.onOpenCart,
-          ),
-          const SizedBox(width: 12),
-        ],
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // --- BARRE DE RECHERCHE ---
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5)),
-                ],
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  hintText: "De quoi avez-vous envie aujourd'hui ?",
-                  prefixIcon: Icon(Icons.search, color: Colors.grey),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 15),
-                ),
-              ),
-            ),
-          ),
+    );
+  }
 
-          // --- HORIZONTAL CATEGORIES BAR ---
-          SizedBox(
-            height: 50,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.only(left: 16),
-              children: ["Tout", "Burgers", "Pizzas", "Poulet", "Boissons"]
-                  .map((cat) {
-                bool isSelected = _selectedCategory == cat;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: ChoiceChip(
-                    label: Text(cat),
-                    selected: isSelected,
-                    selectedColor: kPrimaryColor,
-                    labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : kSecondaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    onSelected: (bool selected) {
-                      setState(() {
-                        _selectedCategory = cat;
-                      });
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text("Le Menu Spécial",
-                style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: kSecondaryColor)),
-          ),
-          const SizedBox(height: 12),
-
-          // --- GRILLE DES PLATS ---
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.75,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-              ),
-              itemCount: filteredPlats.length,
-              itemBuilder: (context, index) {
-                final plat = filteredPlats[index];
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withOpacity(0.02),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5)),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Image du plat
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16)),
-                          child: Image.network(
-                            plat["image"],
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              plat["nom"],
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "${plat["prix"]} MRU",
-                                  style: const TextStyle(
-                                      color: kPrimaryColor,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: const BoxDecoration(
-                                    color: kSecondaryColor,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.add,
-                                      color: Colors.white, size: 16),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      )
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+  Widget _placeholderImage() {
+    return Container(
+      color: const Color(0xFF2A2A32),
+      width: double.infinity,
+      child: const Icon(Icons.fastfood, color: Colors.grey, size: 36),
     );
   }
 }

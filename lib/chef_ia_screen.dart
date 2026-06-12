@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'branding_service.dart';
 import 'constants.dart';
@@ -12,20 +13,42 @@ class ChefIaScreen extends StatefulWidget {
 
 class _ChefIaScreenState extends State<ChefIaScreen> {
   final TextEditingController _messageController = TextEditingController();
-  late List<Map<String, String>> _messages;
+  final GeminiService _geminiService = GeminiService();
+
+  late List<Map<String, String>> _uiMessages;
+
   bool _isLoading = false;
+  List<Map<String, dynamic>> _vraisPlats = [];
 
   @override
   void initState() {
     super.initState();
     final brand = BrandingData.defaults();
-    _messages = [
+    _uiMessages = [
       {
         "role": "assistant",
         "message":
             "Bienvenue chez ${brand.nom} ! 🍳 Je suis le Chef IA. Quel plat puis-je vous conseiller ce soir ?"
       }
     ];
+    _chargerMenuDepuisFirestore();
+  }
+
+  // Charger le menu une fois en arrière-plan pour alimenter l'IA
+  void _chargerMenuDepuisFirestore() async {
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance.collection('plats').get();
+      setState(() {
+        _vraisPlats = snapshot.docs
+            .map((doc) => {...doc.data(), 'id': doc.id})
+            .where((plat) =>
+                plat['disponible'] ?? true) // Uniquement les plats disponibles
+            .toList();
+      });
+    } catch (e) {
+      print("Erreur chargement menu pour l'IA: $e");
+    }
   }
 
   @override
@@ -34,88 +57,90 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
     super.dispose();
   }
 
-  void _addMessage(String role, String message) {
-    _messages.add({"role": role, "message": message});
-  }
-
-  String _buildPrompt(String userText) {
+  // Génération du Prompt Système avec le menu inclus de manière structurée
+  String _buildSystemInstruction() {
     final brand = BrandingData.defaults();
-    return [
-      "Tu es le Chef IA de ${brand.nom}, un service de livraison de repas à ${brand.ville}.",
-      "Réponds en FR, ton style est chaleureux et très court.",
-      "Si l'utilisateur demande un plat, propose 2-3 plats avec prix et justification.",
-      "Si l'utilisateur parle de promo, offres, gratuit, livraison : répond avec une offre fictive réaliste.",
-      "Question utilisateur : $userText",
-    ].join("\n");
+
+    // Convertir la liste des vrais plats en texte lisible par l'IA
+    String menuText = _vraisPlats.map((p) {
+      return "- ${p['nom']} (${p['categorie']}) : Prix: ${p['prix']} MRU. Description: ${p['description'] ?? 'Pas de description'}.";
+    }).join("\n");
+
+    if (_vraisPlats.isEmpty) {
+      menuText = "Le menu est actuellement indisponible ou vide.";
+    }
+
+    return "Tu es le Chef IA de ${brand.nom}, un service de livraison de repas de confiance à ${brand.ville} (secteur ${brand.zone}).\n"
+        "Voici la liste RÉELLE et ACTUELLE des plats disponibles dans notre cuisine :\n"
+        "$menuText\n\n"
+        "CONSIGNES STRICTES :\n"
+        "1. Tu ne dois RECOMMANDER OU PARLER QUE des plats présents dans la liste ci-dessus. Ne propose aucun plat imaginaire.\n"
+        "2. Sois accueillant, chaleureux, expert en cuisine et exprime-toi avec quelques emojis (🍳, 🍔, 🍕, 🌶️).\n"
+        "3. Si l'utilisateur demande le prix, donne le prix exact écrit dans la liste.\n"
+        "4. Réponds toujours de manière concise et claire (maximum 3-4 phrases par réponse). Si le client parle en arabe ou en anglais, réponds dans sa langue.";
   }
 
   void _envoyerMessage() async {
-    final userText = _messageController.text.trim();
-    if (userText.isEmpty) return;
+    final text = _messageController.text.trim();
+    if (text.isEmpty || _isLoading) return;
 
-    if (!GeminiService.isConfigured) {
-      setState(() {
-        _addMessage(
-            "assistant", "Chef IA indisponible : clé Gemini non configurée.");
-      });
-      return;
-    }
-
-    final gemini = GeminiService();
-
+    _messageController.clear();
     setState(() {
-      _messages.add({"role": "user", "message": userText});
-      _messageController.clear();
+      _uiMessages.add({"role": "user", "message": text});
       _isLoading = true;
     });
 
-    try {
-      final prompt = _buildPrompt(userText);
-      final botResponse = await gemini.generateText(prompt);
+    final prompt = '${_buildSystemInstruction()}\n\nUtilisateur : $text';
 
-      setState(() {
-        _messages.add({"role": "assistant", "message": botResponse});
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _messages.add({
-          "role": "assistant",
-          "message": "Erreur Gemini : ${e.toString()}"
-        });
-        _isLoading = false;
-      });
-    }
+    String reponse = await _geminiService.generateChatResponse(prompt);
+
+    setState(() {
+      _uiMessages.add({"role": "assistant", "message": reponse});
+      _isLoading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF111115), // Thème sombre cuisine
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A22),
-        title: const Row(
-          children: [
-            Icon(Icons.psychology, color: kPrimaryColor),
-            SizedBox(width: 10),
-            Text("LE CHEF IA SHOKUGEKI",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold)),
-          ],
-        ),
-      ),
+      backgroundColor: kBackgroundColor,
       body: Column(
         children: [
+          // En-tête personnalisé
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 45, 16, 16),
+            color: const Color(0xFF1A1A22),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: kPrimaryColor.withOpacity(0.15),
+                  child: const Icon(Icons.psychology, color: kPrimaryColor),
+                ),
+                const SizedBox(width: 12),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Chef Conseiller IA 🧑‍🍳",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold)),
+                    Text("En ligne • Connecté au menu",
+                        style: TextStyle(color: Colors.green, fontSize: 11)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Zone des messages
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
+              itemCount: _uiMessages.length,
               itemBuilder: (context, index) {
-                final msg = _messages[index];
-                bool isUser = msg["role"] == "user";
-
+                final msg = _uiMessages[index];
+                final isUser = msg["role"] == "user";
                 return Align(
                   alignment:
                       isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -124,36 +149,35 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: isUser ? kPrimaryColor : const Color(0xFF1A1A22),
-                      borderRadius: BorderRadius.circular(16).copyWith(
-                        bottomRight: isUser
-                            ? const Radius.circular(0)
-                            : const Radius.circular(16),
-                        topLeft: !isUser
-                            ? const Radius.circular(0)
-                            : const Radius.circular(16),
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(16),
+                        topRight: const Radius.circular(16),
+                        bottomLeft: Radius.circular(isUser ? 16 : 0),
+                        bottomRight: Radius.circular(isUser ? 0 : 16),
                       ),
                     ),
                     constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.75),
+                        maxWidth: MediaQuery.of(context).size.width * 0.78),
                     child: Text(
-                      msg["message"]!,
+                      msg["message"] ?? '',
                       style: TextStyle(
-                          color: isUser ? Colors.black : Colors.white,
-                          fontSize: 14,
-                          fontWeight:
-                              isUser ? FontWeight.bold : FontWeight.normal),
+                          color: isUser ? Colors.white : Colors.white70,
+                          fontSize: 14),
                     ),
                   ),
                 );
               },
             ),
           ),
+
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.only(bottom: 8.0),
               child: Center(
                   child: CircularProgressIndicator(color: kPrimaryColor)),
             ),
+
+          // Barre d'écriture
           Container(
             padding: const EdgeInsets.all(12),
             color: const Color(0xFF1A1A22),
@@ -163,10 +187,10 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
                   child: TextField(
                     controller: _messageController,
                     style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText:
-                          "Demandez au Chef... (ex: Plat le moins cher ?)",
-                      hintStyle: const TextStyle(color: Colors.grey),
+                          "Demandez au Chef... (ex: Que me conseillez-vous ?)",
+                      hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
                       border: InputBorder.none,
                     ),
                     onSubmitted: (_) => _envoyerMessage(),
