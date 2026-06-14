@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'constants.dart';
+import 'role_router.dart'; // Importation indispensable de ton routeur !
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,16 +31,49 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // --- VÉRIFICATION DU STATUT DE L'APPLICATION (ANTI-FRAUDE) ---
+      final statutDoc = await FirebaseFirestore.instance
+          .collection('statut')
+          .doc('statut')
+          .get();
+
+      if (statutDoc.exists) {
+        final bool isActive = statutDoc.data()?['is_active'] ?? true;
+        final String messageBlocage = statutDoc.data()?['message_blocage'] ?? 
+            "Votre abonnement Shokugeki Menu a expiré. Veuillez régulariser votre situation.";
+
+        if (!isActive) {
+          if (mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false, 
+              builder: (context) => AlertDialog(
+                backgroundColor: const Color(0xFF14161D),
+                title: const Row(
+                  children: [
+                    Icon(Icons.gpp_bad, color: Colors.red),
+                    SizedBox(width: 10),
+                    Text("Système Restreint", style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+                content: Text(messageBlocage, style: const TextStyle(color: Colors.white70)),
+              ),
+            );
+          }
+          setState(() => _isLoading = false);
+          return; 
+        }
+      }
+
       if (_isStaffMode) {
         // --- CONNEXION STAFF PAR CODE SECRET ---
         final codeSecret = _staffCodeController.text.trim();
-        if (codeSecret.length < 4) {
-          _showSnackBar("Le code secret doit comporter au moins 4 chiffres.", const Color(0xFF7F1D1D));
+        if (codeSecret.isEmpty) {
+          _showSnackBar("Veuillez entrer un code.", const Color(0xFF7F1D1D));
           setState(() => _isLoading = false);
           return;
         }
 
-        // Requête de vérification dans Firestore
         final staffQuery = await FirebaseFirestore.instance
             .collection('personnel')
             .where('code_secret', isEqualTo: codeSecret)
@@ -50,11 +84,17 @@ class _LoginScreenState extends State<LoginScreen> {
           _showSnackBar("Code secret incorrect. Accès refusé.", const Color(0xFF7F1D1D));
         } else {
           final staffData = staffQuery.docs.first.data();
-          String role = staffData['role'] ?? 'inconnu';
+          String role = staffData['role'] ?? 'client';
+          
           _showSnackBar("Accès accordé : ${role.toUpperCase()}", Colors.green);
           
-          // Ici, ton Gatekeeper redirigera vers le bon dashboard :
-          // 'directeur', 'caissier', 'livreur', ou 'cuisine' !
+          // CORRECTION : Utilisation de ton RoleRouter pour envoyer vers l'interface correspondante !
+          if (mounted) {
+            Navigator.pushReplacement(
+              context, 
+              MaterialPageRoute(builder: (_) => RoleRouter(userRole: role)),
+            );
+          }
         }
       } else {
         // --- MODE CLIENT (Email/Mot de passe) ---
@@ -76,9 +116,23 @@ class _LoginScreenState extends State<LoginScreen> {
             'role': 'client',
             'date_creation': FieldValue.serverTimestamp(),
           });
+          
+          if (mounted) {
+            Navigator.pushReplacement(
+              context, 
+              MaterialPageRoute(builder: (_) => const RoleRouter(userRole: 'client')),
+            );
+          }
         } else {
           // Connexion Client
           await FirebaseAuth.instance.signInWithEmailAndPassword(email: email, password: password);
+          
+          if (mounted) {
+            Navigator.pushReplacement(
+              context, 
+              MaterialPageRoute(builder: (_) => const RoleRouter(userRole: 'client')),
+            );
+          }
         }
       }
     } on FirebaseAuthException catch (e) {
@@ -87,9 +141,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (e.code == 'wrong-password') msg = "Mot de passe incorrect.";
       _showSnackBar(msg, const Color(0xFF7F1D1D));
     } catch (e) {
-      _showSnackBar("Erreur système.", const Color(0xFF7F1D1D));
+      _showSnackBar("Erreur système ou problème de connexion.", const Color(0xFF7F1D1D));
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -107,7 +161,6 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.all(28.0),
             child: Column(
               children: [
-                // Logo Épuré Cyber
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -128,11 +181,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 30),
 
                 if (_isStaffMode) ...[
-                  // --- FORMULAIRE CODE SECRET STAFF ---
                   TextField(
                     controller: _staffCodeController,
                     keyboardType: TextInputType.number,
-                    obscureText: true, // Masque le code secret pour la sécurité
+                    obscureText: true,
                     style: const TextStyle(color: Colors.white, fontSize: 22, letterSpacing: 8),
                     textAlign: TextAlign.center,
                     decoration: InputDecoration(
@@ -145,7 +197,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ] else ...[
-                  // --- FORMULAIRE CLIENT ---
                   if (_isSignUpMode) ...[
                     TextField(
                       controller: _nomController,
@@ -189,7 +240,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 32),
                 
-                // Bouton Principal
                 SizedBox(
                   width: double.infinity,
                   height: 56,
@@ -207,14 +257,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 
                 const SizedBox(height: 20),
 
-                // Liens de basculement alternatifs
                 if (!_isStaffMode)
                   TextButton(
                     onPressed: () => setState(() => _isSignUpMode = !_isSignUpMode),
                     child: Text(_isSignUpMode ? "Déjà membre ? Connexion" : "Nouveau ? Créer un compte", style: const TextStyle(color: kPrimaryColor)),
                   ),
                   
-                // Bouton pour basculer entre Mode Client et Mode Équipe Restaurant
                 TextButton(
                   onPressed: () => setState(() {
                     _isStaffMode = !_isStaffMode;

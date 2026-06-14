@@ -3,19 +3,37 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// Constantes de Design Cyber-Premium
+// Importations de tes dashboards spécifiques pour éviter les erreurs de classes
+import 'director_dashboard_screen.dart';
+import 'caissier_dashboard_screen.dart';
+import 'livreur_dashboard_screen.dart';
+import 'restaurant_workflows_2.dart'; // Contient la vue KitchenDashboard mise à jour
+
+// =========================================================================
+// CONSTANTES DE DESIGN CYBER-PREMIUM & INFOS BUSINESS
+// =========================================================================
 const Color kPrimaryColor = Color(0xFF2196F3); 
 const Color kBackgroundColor = Color(0xFF090A0F);
 const Color kSurfaceColor = Color(0xFF14161D);
+const Color kAccentColor = Color(0xFFFFD700);
+
+// Infos de développeur (Uchiwa Nagato)
+const String kDeveloperPhone = "+22232652300";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
   runApp(const ShokugekiMenuApp());
 }
 
 class ShokugekiMenuApp extends StatelessWidget {
   const ShokugekiMenuApp({super.key});
+
+  Future<void> _initFirebase() async {
+    await Firebase.initializeApp().timeout(
+      const Duration(seconds: 8),
+      onTimeout: () => print("Firebase n'a pas répondu à temps, passage en mode local."),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +48,27 @@ class ShokugekiMenuApp extends StatelessWidget {
           surface: kSurfaceColor,
         ),
       ),
-      home: const LoginScreen(),
+      home: FutureBuilder(
+        future: _initFirebase(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            return const LoginScreen();
+          }
+          return const Scaffold(
+            backgroundColor: kBackgroundColor,
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.restaurant_menu_rounded, size: 80, color: kPrimaryColor),
+                  SizedBox(height: 24),
+                  CircularProgressIndicator(color: kPrimaryColor),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -56,7 +94,6 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. On cherche d'abord si c'est un Code Secret du Personnel
       final staffQuery = await FirebaseFirestore.instance
           .collection('personnel')
           .where('code_secret', isEqualTo: entree)
@@ -67,11 +104,12 @@ class _LoginScreenState extends State<LoginScreen> {
         final data = staffQuery.docs.first.data();
         final role = data['role']?.toString().trim() ?? '';
 
+        // FIX : Redirection vers les exacts bons noms de tes fichiers dashboards
         Widget cible = const ClientMainScreen();
-        if (role == 'directeur') cible = const DirecteurDashboard();
-        if (role == 'caissier') cible = const CaissierDashboard();
+        if (role == 'directeur') cible = const DirectorDashboardScreen();
+        if (role == 'caissier') cible = const CaissierDashboardScreen();
         if (role == 'cuisine') cible = const KitchenDashboard();
-        if (role == 'livreur') cible = const LivreurDashboard();
+        if (role == 'livreur') cible = const LivreurDashboardScreen();
 
         if (mounted) {
           Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => cible));
@@ -79,7 +117,6 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // 2. Si ce n'est pas un code staff, on considère que c'est un numéro client
       if (mounted) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ClientMainScreen()));
       }
@@ -115,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   labelText: "Numéro de téléphone ou Code Secret",
                   labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
                   prefixIcon: const Icon(Icons.lock_outline, color: kPrimaryColor),
-                  hintText: "Ex: 46XXXXXX ou 2300, 3265...",
+                  hintText: "Ex: 46XXXXXX ou code staff...",
                   filled: true,
                   fillColor: kSurfaceColor,
                   enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
@@ -161,7 +198,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
     const MenuClientPage(),
     const Center(child: Text("Vos Commandes s'afficheront ici", style: TextStyle(color: Colors.white54))),
     const ChefIAPage(),
-    const Center(child: Text("Contact : Nouakchott, Mauritanie", style: TextStyle(color: Colors.white54))),
+    const AboutContactPage(),
   ];
 
   @override
@@ -271,240 +308,128 @@ class _MenuClientPageState extends State<MenuClientPage> {
 }
 
 // =========================================================================
-// 3. LA CUISINE (REÇOIT ET PRÉPARE)
+// ÉCRAN CONTACT ET PROMOTION BUSINESS (NAGATO)
 // =========================================================================
-class KitchenDashboard extends StatelessWidget {
-  const KitchenDashboard({super.key});
+class AboutContactPage extends StatelessWidget {
+  const AboutContactPage({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("CUISINE - LIVE"), backgroundColor: kSurfaceColor),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('commandes').where('statut', isEqualTo: 'en_preparation').snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text("Aucune commande en préparation. 🍳", style: TextStyle(color: Colors.white38)));
-
-          return GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
-              return Container(
-                decoration: BoxDecoration(color: kSurfaceColor, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.amber.withOpacity(0.5))),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("COMMANDE #${doc.id.substring(0,4)}", style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    Expanded(child: Text(data['details'] ?? 'Plat Shokugeki unique', style: const TextStyle(fontSize: 16))),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                        onPressed: () => doc.reference.update({'statut': 'pret_pour_livraison'}),
-                        child: const Text("Prêt !", style: TextStyle(color: Colors.white)),
-                      ),
-                    )
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-// =========================================================================
-// 4. LE LIVREUR (ADRESSE DÉTAILLÉE + GOOGLE MAPS DIRECT)
-// =========================================================================
-class LivreurDashboard extends StatelessWidget {
-  const LivreurDashboard({super.key});
-
-  Future<void> _ouvrirMaps(String quartier) async {
-    final url = Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent('$quartier, Nouakchott, Mauritanie')}");
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+  Future<void> _lancerUrl(Uri uri) async {
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("SUIVI DES COURSES (NOUAKCHOTT)"), backgroundColor: kSurfaceColor),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('commandes').where('statut', isEqualTo: 'pret_pour_livraison').snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data!.docs;
-          if (docs.isEmpty) return const Center(child: Text("Aucune course disponible. ☕", style: TextStyle(color: Colors.white38)));
+      appBar: AppBar(
+        title: const Text("Contact & Infos 📍"),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const CircleAvatar(
+              radius: 45,
+              backgroundColor: kSurfaceColor,
+              child: Icon(Icons.restaurant_menu_rounded, size: 50, color: kPrimaryColor),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Shokugeki Restaurant",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const Text(
+              "Le meilleur goût numérique de Nouakchott !",
+              style: TextStyle(fontSize: 13, color: Colors.white54, fontStyle: FontStyle.italic),
+            ),
+            const SizedBox(height: 32),
+            
+            _infoRow(Icons.location_on, "Adresse", "Nouakchott, Mauritanie"),
+            const SizedBox(height: 12),
+            _infoRow(Icons.access_time, "Horaires", "7j/7 - De 12h00 à 02h00 du matin"),
+            const SizedBox(height: 12),
+            _infoRow(Icons.phone, "Téléphone Resto", "+222 46000000"),
+            
+            const SizedBox(height: 40),
+            const Divider(color: Colors.white10),
+            const SizedBox(height: 24),
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
-              final quartier = data['quartier'] ?? "Tevragh Zeina";
-              final reperes = data['indications_adresse'] ?? "Près du rond-point";
-
-              return Card(
-                color: kSurfaceColor,
-                margin: const EdgeInsets.bottom(16),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: kPrimaryColor.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: kPrimaryColor.withOpacity(0.2)),
+              ),
+              child: Column(
+                children: [
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("Client: ${data['client_nom'] ?? 'Anonyme'}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Text("📍 Quartier : $quartier", style: const TextStyle(color: Colors.cyan, fontWeight: FontWeight.bold)),
-                      Text("🏠 Repères : $reperes", style: const TextStyle(color: Colors.white70)),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => _ouvrirMaps(quartier),
-                              style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.cyan)),
-                              child: const Text("Google Maps", style: TextStyle(color: Colors.cyan)),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => doc.reference.update({'statut': 'livre'}),
-                              style: ElevatedButton.styleFrom(backgroundColor: kPrimaryColor),
-                              child: const Text("Livré ✓", style: TextStyle(color: Colors.white)),
-                            ),
-                          ),
-                        ],
-                      )
+                      Icon(Icons.code, color: kPrimaryColor, size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        "Développé par Uchiwa Nagato",
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15),
+                      ),
                     ],
                   ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-// =========================================================================
-// 5. LE CAISSIER (VALIDATION COMPTABLE)
-// =========================================================================
-class CaissierDashboard extends StatelessWidget {
-  const CaissierDashboard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("CONSOLE CAISSE & STATS"), backgroundColor: kSurfaceColor),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('commandes').where('statut', isEqualTo: 'en_attente').snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final docs = snapshot.data!.docs;
-
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildStatCard("Recette", "0 MRU", Colors.green),
-                    _buildStatCard("Validées", "${docs.length}", kPrimaryColor),
-                    _buildStatCard("Fraudes", "0", Colors.redAccent),
-                  ],
-                ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Vous gérez un commerce, une boutique ou un restaurant à Nouakchott ? Donnez un coup de boost à votre business avec votre propre application mobile !",
+                    style: TextStyle(color: Colors.grey, fontSize: 12, height: 1.4),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final message = Uri.encodeComponent("Salut Nagato ! J'ai vu l'application Shokugeki Menu et je voudrais commander un service (site web ou application) pour mon projet.");
+                      final whatsappUrl = Uri.parse("https://wa.me/$kDeveloperPhone?text=$message");
+                      _lancerUrl(whatsappUrl);
+                    },
+                    icon: const Icon(Icons.bolt, color: Colors.black),
+                    label: const Text(
+                      "Demander une Application / Site Web",
+                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kPrimaryColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      minimumSize: const Size(double.infinity, 50),
+                      elevation: 0,
+                    ),
+                  ),
+                ],
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0),
-                child: Align(alignment: Alignment.centerLeft, child: Text("COMMANDES DU JOUR", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white54))),
-              ),
-              Expanded(
-                child: docs.isEmpty
-                    ? const Center(child: Text("Aucune commande enregistrée aujourd'hui. 📅", style: TextStyle(color: Colors.white38)))
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: docs.length,
-                        itemBuilder: (context, index) {
-                          final doc = docs[index];
-                          final data = doc.data() as Map<String, dynamic>;
-                          return Card(
-                            color: kSurfaceColor,
-                            child: ListTile(
-                              title: Text(data['client_nom'] ?? 'Commande'),
-                              subtitle: Text("Total: ${data['total'] ?? 0} MRU"),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.check_circle, color: Colors.green),
-                                onPressed: () => doc.reference.update({'statut': 'en_preparation'}),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              )
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String titre, String valeur, Color couleur) {
-    return Container(
-      width: 105,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: kSurfaceColor, borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.lens, size: 12, color: couleur),
-          const SizedBox(height: 8),
-          Text(titre, style: const TextStyle(fontSize: 12, color: Colors.white54)),
-          Text(valeur, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-}
-
-// =========================================================================
-// 6. LE DIRECTEUR & L'IA AUDIT
-// =========================================================================
-class DirecteurDashboard extends StatelessWidget {
-  const DirecteurDashboard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("BUREAU DU DIRECTEUR"), backgroundColor: kSurfaceColor),
-      body: const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("📊 Rapports & Audit IA", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            SizedBox(height: 16),
-            Expanded(
-              child: ChatInterface(
-                msgBot: "Je suis votre assistant de gestion Shokugeki. Demandez-moi combien on a gagné ou un résumé complet de la boutique !",
-                hintText: "Ex: Combien on a gagné aujourd'hui...",
-              ),
-            )
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: kSurfaceColor, borderRadius: BorderRadius.circular(14)),
+      child: Row(
+        children: [
+          Icon(icon, color: kPrimaryColor, size: 22),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                const SizedBox(height: 2),
+                Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 14)),
+              ],
+            ),
+          )
+        ],
       ),
     );
   }
@@ -554,7 +479,6 @@ class _ChatInterfaceState extends State<ChatInterface> {
       _textController.clear();
     });
 
-    // Simulation de réponse de l'IA sans plantage API
     Future.delayed(const Duration(milliseconds: 800), () {
       if (mounted) {
         setState(() {

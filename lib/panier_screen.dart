@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'main.dart'; // Importe tes constantes de couleurs (kPrimaryColor, etc.)
+import 'constants.dart';
 
 class PanierScreen extends StatefulWidget {
   final List<Map<String, dynamic>> articlesPanier;
@@ -21,7 +21,6 @@ class _PanierScreenState extends State<PanierScreen> {
   final _phoneController = TextEditingController();
   final _reperesController = TextEditingController();
   
-  // Liste des quartiers de Nouakchott pour ton sélecteur
   String _quartierSelectionne = "Tevragh Zeina";
   final List<String> _quartiersNouakchott = [
     "Tevragh Zeina",
@@ -48,19 +47,20 @@ class _PanierScreenState extends State<PanierScreen> {
     setState(() => _isSending = true);
 
     try {
-      // Construction de la chaîne de caractères pour la cuisine
+      // 1. Transformation des articles en texte unifié pour la cuisine et le livreur
       String detailsPlats = widget.articlesPanier.map((item) => "${item['quantite']}x ${item['nom']}").join(", ");
 
-      // Envoi direct dans la collection 'commandes' de Firestore
+      // 2. Envoi sur Firestore avec les champs standardisés
       await FirebaseFirestore.instance.collection('commandes').add({
-        'client_nom': _nomController.text.trim(),
-        'client_telephone': _phoneController.text.trim(),
-        'quartier': _quartierSelectionne,
-        'indications_adresse': _reperesController.text.trim().isEmpty ? "Aucun repère fourni" : _reperesController.text.trim(),
-        'details': detailsPlats,
+        'client': _nomController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'adresse': "$_quartierSelectionne - ${_reperesController.text.trim().isEmpty ? "Aucun repère fourni" : _reperesController.text.trim()}",
+        'plats': detailsPlats,
         'total': widget.totalCommande,
-        'statut': 'en_attente', // En attente de validation par le caissier !
+        'statut': 'en_attente', 
         'date_commande': FieldValue.serverTimestamp(),
+        'type_paiement': 'Application',
+        'ref_transaction': 'En attente',
       });
 
       if (mounted) {
@@ -70,12 +70,12 @@ class _PanierScreenState extends State<PanierScreen> {
           builder: (context) => AlertDialog(
             backgroundColor: const Color(0xFF14161D),
             title: const Text("🔥 Commande Envoyée !", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-            content: const Text("Votre commande a été transmise à la caisse de Shokugeki Menu. Suivez son statut depuis votre espace.", style: TextStyle(color: Colors.white70)),
+            content: const Text("Votre commande a été transmise à la caisse. Suivez son statut depuis votre espace.", style: TextStyle(color: Colors.white70)),
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context); // Ferme le dialogue
-                  Navigator.pop(context); // Retourne au menu principal
+                  Navigator.pop(context);
+                  Navigator.pop(context);
                 },
                 child: const Text("Parfait", style: TextStyle(color: Color(0xFF2196F3))),
               )
@@ -127,7 +127,7 @@ class _PanierScreenState extends State<PanierScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text("Total (Livraison incluse)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.amber)),
+                      const Text("Total", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.amber)),
                       Text("${widget.totalCommande} MRU", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.amber)),
                     ],
                   )
@@ -150,8 +150,6 @@ class _PanierScreenState extends State<PanierScreen> {
               decoration: _buildInputDecoration("Numéro de téléphone (WhatsApp/Appel)", Icons.phone_android),
             ),
             const SizedBox(height: 16),
-            
-            // Menu Déroulant pour les Quartiers de Nouakchott
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               decoration: BoxDecoration(color: const Color(0xFF14161D), borderRadius: BorderRadius.circular(16)),
@@ -181,7 +179,7 @@ class _PanierScreenState extends State<PanierScreen> {
               controller: _reperesController,
               maxLines: 2,
               style: const TextStyle(color: Colors.white),
-              decoration: _buildInputDecoration("Points de repère (ex: À côté de la mosquée jaune, face boutique)", Icons.map_outlined),
+              decoration: _buildInputDecoration("Points de repère (ex: À côté de la mosquée, face boutique)", Icons.map_outlined),
             ),
             const SizedBox(height: 32),
             SizedBox(

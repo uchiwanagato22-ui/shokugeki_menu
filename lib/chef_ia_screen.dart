@@ -34,11 +34,11 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
     _chargerMenuDepuisFirestore();
   }
 
-  // Charger le menu une fois en arrière-plan pour alimenter l'IA
+  // CORRECTION : Connexion ciblée sur ta vraie collection Firestore 'menu'
   void _chargerMenuDepuisFirestore() async {
     try {
       final snapshot =
-          await FirebaseFirestore.instance.collection('plats').get();
+          await FirebaseFirestore.instance.collection('menu').get();
       setState(() {
         _vraisPlats = snapshot.docs
             .map((doc) => {...doc.data(), 'id': doc.id})
@@ -57,11 +57,9 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
     super.dispose();
   }
 
-  // Génération du Prompt Système avec le menu inclus de manière structurée
   String _buildSystemInstruction() {
     final brand = BrandingData.defaults();
 
-    // Convertir la liste des vrais plats en texte lisible par l'IA
     String menuText = _vraisPlats.map((p) {
       return "- ${p['nom']} (${p['categorie']}) : Prix: ${p['prix']} MRU. Description: ${p['description'] ?? 'Pas de description'}.";
     }).join("\n");
@@ -106,7 +104,6 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
       backgroundColor: kBackgroundColor,
       body: Column(
         children: [
-          // En-tête personnalisé
           Container(
             padding: const EdgeInsets.fromLTRB(16, 45, 16, 16),
             color: const Color(0xFF1A1A22),
@@ -133,7 +130,6 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
             ),
           ),
 
-          // Zone des messages
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -177,7 +173,6 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
                   child: CircularProgressIndicator(color: kPrimaryColor)),
             ),
 
-          // Barre d'écriture
           Container(
             padding: const EdgeInsets.all(12),
             color: const Color(0xFF1A1A22),

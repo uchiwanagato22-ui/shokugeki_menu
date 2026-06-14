@@ -31,7 +31,6 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
       _isLoading = true;
     });
 
-    // L'IA va scanner Firestore et formuler sa réponse
     String reponse = await _iaService.repondreAuDirecteur(question);
 
     setState(() {
@@ -43,7 +42,7 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Bleu nuit Premium de Directeur
+      backgroundColor: const Color(0xFF0F172A), 
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E293B),
         elevation: 4,
@@ -57,26 +56,17 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             const Row(
               children: [
                 Icon(Icons.admin_panel_settings, color: Colors.white, size: 30),
                 SizedBox(width: 12),
-                Text(
-                  "Rapports & Audit IA",
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                ),
+                Text("Rapports & Audit IA", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 16),
-
-            // Zone de chat avec l'IA de gestion
             Expanded(
               child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16)),
                 child: Column(
                   children: [
                     Expanded(
@@ -114,14 +104,9 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
                         padding: EdgeInsets.only(bottom: 8.0),
                         child: CircularProgressIndicator(color: kPrimaryColor),
                       ),
-                    
-                    // Input de commande vocale / écrite du Directeur
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF0F172A),
-                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
-                      ),
+                      decoration: const BoxDecoration(color: Color(0xFF0F172A), borderRadius: BorderRadius.vertical(bottom: Radius.circular(16))),
                       child: Row(
                         children: [
                           Expanded(

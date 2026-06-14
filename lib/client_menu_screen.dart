@@ -152,7 +152,10 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                     itemCount: platsFiltres.length,
                     itemBuilder: (context, index) {
                       final plat = platsFiltres[index];
-                      final hasImage = plat['image'] != null && plat['image'].toString().isNotEmpty;
+                      
+                      // Vérification ultra sécurisée si l'image est une URL internet valide (Postimages, ImgBB, Unsplash...)
+                      final String imageUrl = plat['image']?.toString().trim() ?? '';
+                      final bool hasValidUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
 
                       return InkWell(
                         onTap: () {
@@ -186,13 +189,13 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Image du plat avec mise en cache
+                              // Image du plat avec mise en cache ou Placeholder gratuit
                               Expanded(
                                 child: ClipRRect(
                                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                                  child: hasImage
+                                  child: hasValidUrl
                                       ? CachedNetworkImage(
-                                          imageUrl: plat['image'],
+                                          imageUrl: imageUrl,
                                           width: double.infinity,
                                           fit: BoxFit.cover,
                                           placeholder: (context, url) => Container(

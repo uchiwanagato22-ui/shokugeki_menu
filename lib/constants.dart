@@ -3,11 +3,16 @@ import 'package:flutter/material.dart';
 // --- INFOS GLOBALES DE L'APPLICATION ---
 const String kAppName = "Shokugeki Menu";
 
-// --- PALETTE DE COULEURS (valeurs par défaut) ---
-const Color kPrimaryColor = Color(0xFF1E88E5); // bleu
-const Color kSecondaryColor = Color(0xFF374151); // gris foncé
-const Color kBackgroundColor = Color(0xFF0F1724); // fond sombre
-const Color kAccentColor = Color(0xFFFFC107); // accent (jaune/ambre)
+// --- INFOS DÉVELOPPEMENT (NAGATO BUSINESS) ---
+const String kDeveloperName = "Nagato";
+const String kDeveloperPhone = "+22232652300"; // Ton numéro WhatsApp Direct
+
+// --- PALETTE DE COULEURS CYBER-PREMIUM ---
+const Color kPrimaryColor = Color(0xFF2196F3);     // Bleu électrique
+const Color kSecondaryColor = Color(0xFF1E1E24);   // Gris sombre premium
+const Color kBackgroundColor = Color(0xFF090A0F); // Fond noir profond
+const Color kSurfaceColor = Color(0xFF14161D);     // Cartes et composants
+const Color kAccentColor = Color(0xFFFFD700);      // Or / Jaune pour les étoiles
 
 const List<String> kDefaultCategories = [
   'Tout',
