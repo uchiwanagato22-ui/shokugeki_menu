@@ -22,10 +22,13 @@ void main() async {
 class ShokugekiMenuApp extends StatelessWidget {
   const ShokugekiMenuApp({super.key});
 
-  Future<void> _initFirebase() async {
-    await Firebase.initializeApp().timeout(
+  Future<FirebaseApp> _initFirebase() async {
+    return await Firebase.initializeApp().timeout(
       const Duration(seconds: 8),
-      onTimeout: () => print("Firebase n'a pas répondu à temps, passage en mode local."),
+      onTimeout: () {
+        print("Firebase n'a pas répondu à temps, passage en mode local.");
+        return Firebase.app(); // Corrected: Returns FirebaseApp instead of void
+      },
     );
   }
 

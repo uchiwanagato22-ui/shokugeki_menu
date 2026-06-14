@@ -56,7 +56,7 @@ class KitchenDashboard extends StatelessWidget {
               mainAxisSpacing: 16,
               childAspectRatio: 1.3,
             ),
-            itemCount: docs.length, // FIX : Remplacement du faux .count par .length
+            itemCount: docs.length,
             itemBuilder: (context, index) {
               var commande = docs[index];
               var data = commande.data() as Map<String, dynamic>;
@@ -163,7 +163,8 @@ class CaissierDashboard extends StatelessWidget {
                           var data = commande.data() as Map<String, dynamic>;
 
                           return Container(
-                            margin: const EdgeInsets.bottom(12),
+                            // 👇 CORRECTION ICI : Remplacement de EdgeInsets.bottom(12) par la syntaxe valide
+                            margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(color: const Color(0xFF14161D), borderRadius: BorderRadius.circular(12)),
                             child: ListTile(
                               title: Text("${data['client'] ?? 'Client'} (${data['total'] ?? 0} MRU)", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),

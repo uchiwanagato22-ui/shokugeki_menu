@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'constants.dart';
-import 'director_ia_service.dart';
+import 'director_ia_service.dart' hide kPrimaryColor; // Corrected: Hides duplicate color constant to avoid conflicts
 
 class DirectorDashboardScreen extends StatefulWidget {
   const DirectorDashboardScreen({super.key});
