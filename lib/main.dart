@@ -3,12 +3,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// --- ATTENTION : VÉRIFIE BIEN LE NOM DE TES ÉCRANS ICI ---
-import 'directeur_dashboard_screen.dart'; // Corrigé si ton fichier est en français
+// --- IMPORTS CORRIGÉS D'APRÈS TES FICHIERS REELS ---
+import 'directeur_dashboard_screen.dart'; // Nom du fichier corrigé en français
 import 'caissier_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
-// Si ton fichier s'appelle autrement pour la cuisine, change cette ligne :
-import 'restaurant_workflows_2.dart'; 
+import 'restaurant_workflows.dart'; // Retrait du "_2" inutile !
 
 const Color kPrimaryColor = Color(0xFF2196F3); 
 const Color kBackgroundColor = Color(0xFF090A0F);
@@ -26,10 +25,10 @@ class ShokugekiMenuApp extends StatelessWidget {
   const ShokugekiMenuApp({super.key});
 
   Future<FirebaseApp> _initFirebase() async {
-    // CORRECTION : On retourne correctement l'initialisation ou on lève une exception en cas de timeout
+    // Correction du type de retour pour le timeout Firebase
     return await Firebase.initializeApp().timeout(
       const Duration(seconds: 8),
-      onTimeout: () => throw Exception("Firebase n'a pas répondu à temps."),
+      onTimeout: () => throw Exception("Firebase ne répond pas."),
     );
   }
 
@@ -107,8 +106,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
         Widget cible = const ClientMainScreen();
         
-        // CORRECTION : Suppression des 'const' invalides devant les classes ici
-        if (role == 'directeur') cible = const DirecteurDashboardScreen();
+        // CORRECTION : Association propre avec le nom réel de tes classes de dashboards
+        if (role == 'directeur') cible = const DirectorDashboardScreen(); 
         if (role == 'caissier') cible = const CaissierDashboardScreen();
         if (role == 'cuisine') cible = const KitchenDashboard();
         if (role == 'livreur') cible = const LivreurDashboardScreen();
@@ -286,7 +285,7 @@ class _MenuClientPageState extends State<MenuClientPage> {
                     final item = docs[index].data() as Map<String, dynamic>;
                     return Card(
                       color: kSurfaceColor,
-                      // CORRECTION : Remplacement de EdgeInsets.bottom par EdgeInsets.only
+                      // CORRECTION FINALE : Syntaxe correcte pour la marge du bas
                       margin: const EdgeInsets.only(bottom: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       child: ListTile(
