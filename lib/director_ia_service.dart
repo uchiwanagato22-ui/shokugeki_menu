@@ -770,7 +770,7 @@ class LivreurDashboard extends StatelessWidget {
               final quartier = data['quartier'] ?? "Tevragh Zeina";
               return Card(
                 color: kSurfaceColor,
-                margin: const EdgeInsets.bottom(16),
+                margin: const EdgeInsets.only(bottom: 16),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
