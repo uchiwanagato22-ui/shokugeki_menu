@@ -80,13 +80,12 @@ class _AppGatekeeper extends StatelessWidget {
             body: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Center(
-                child: Column backing;
+                child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const RestaurantLogo(size: 70),
                     const SizedBox(height: 24),
-                    const Icon(Icons.block_rounded,
-                        size: 60, color: Colors.white70),
+                    const Icon(Icons.block_rounded, size: 60, color: Colors.white70),
                     const SizedBox(height: 16),
                     Text(
                       messageBlocage,
