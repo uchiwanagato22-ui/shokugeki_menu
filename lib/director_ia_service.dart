@@ -1,57 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'restaurant_config.dart';
-
-class DirectorIaService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-
-  // --- L'IA ANALYSE LES DONNÉES DE LA BOUTIQUE POUR LE DIRECTEUR ---
-  Future<String> repondreAuDirecteur(String question) async {
-    String q = question.toLowerCase();
-
-    try {
-      // 1. Récupération de toutes les commandes pour les calculs
-      QuerySnapshot cmdSnapshot = await _db.collection('commandes').get();
-      List<DocumentSnapshot> docs = cmdSnapshot.docs;
-
-      int chiffreAffaires = 0;
-      int commandesAttente = 0;
-      int commandesLivrees = 0;
-
-      for (var doc in docs) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        int total = data['total'] ?? 0;
-        String statut = data['statut'] ?? '';
-
-        // Cumul du chiffre d'affaires (uniquement les commandes validées/livrées)
-        if (statut != "Rejeté / Fraude suspectée" &&
-            statut != "En attente de validation") {
-          chiffreAffaires += total;
-        }
-
-        if (statut == "En attente de validation") {
-          commandesAttente++;
-        } else if (statut == "Livré") {
-          commandesLivrees++;
-        }
-      }
-
-      // 2. Logique de réponse de l'IA selon ta question
-      if (q.contains("gagné") ||
-          q.contains("chiffre d'affaires") ||
-          q.contains("argent") ||
-          q.contains("ca")) {
-        return "Chef, d'après les calculs en temps réel de Firestore, le chiffre d'affaires actuel (commandes validées et en cours) est de **$chiffreAffaires MRU**. 💰";
-      } else if (q.contains("attente") ||
-          q.contains("valider") ||
-          q.contains("caisse")) {
-        if (commandesAttente > 0) {
-          return "Oui Directeur, il y a actuellement **$commandesAttente commande(s) en attente** de validation à la caisse. On devrait presser le caissier ! ⏳";
-        } else {
-          return "Tout est calme Directeur, aucune commande n'est en attente à la caisse pour le moment. 👌";
-        }
-      } else if (q.contains("statut") ||
-          q.contains("résumé") ||
-          q.contains("rapport")) {import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -383,13 +330,12 @@ class _MenuClientPageState extends State<MenuClientPage> {
                     
                     return Card(
                       color: kSurfaceColor,
-                      margin: const EdgeInsets.bottom(16),
+                      margin: const EdgeInsets.only(bottom: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       child: Padding(
                         padding: const EdgeInsets.all(12.0),
                         child: Row(
                           children: [
-                            // Affichage intelligent et sécurisé de l'image externe gratuite
                             Container(
                               width: 80,
                               height: 80,
@@ -549,7 +495,6 @@ class _DirecteurDashboardState extends State<DirecteurDashboard> {
   final DirectorIaService _iaService = DirectorIaService();
   final TextEditingController _iaController = TextEditingController();
   
-  // Contrôleurs pour ajouter un plat gratuitement via URL
   final _nomController = TextEditingController();
   final _prixController = TextEditingController();
   final _descController = TextEditingController();
@@ -597,7 +542,7 @@ class _DirecteurDashboardState extends State<DirecteurDashboard> {
         'nom': nom,
         'prix': prix,
         'description': desc,
-        'image_url': urlImage, // Option gratuite : URL directe stockée textuellement
+        'image_url': urlImage,
         'categorie': _selectedCatAjout,
       });
 
@@ -634,7 +579,6 @@ class _DirecteurDashboardState extends State<DirecteurDashboard> {
         ),
         body: TabBarView(
           children: [
-            // Onglet 1 : L'IA d'Audit
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -686,8 +630,6 @@ class _DirecteurDashboardState extends State<DirecteurDashboard> {
                 ],
               ),
             ),
-            
-            // Onglet 2 : Ajout de Plat Gratuit (Entrée d'URL d'image externe)
             SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Column(
@@ -751,7 +693,7 @@ class _DirecteurDashboardState extends State<DirecteurDashboard> {
 }
 
 // =========================================================================
-// RESTE DU CODE MAQUETTE FONCTIONNEL (CUISINE, LIVREUR, CAISSIER)
+// DASHBOARDS COMPLÉMENTAIRES (CUISINE, LIVREUR, CAISSIER, CHEF IA)
 // =========================================================================
 class KitchenDashboard extends StatelessWidget {
   const KitchenDashboard({super.key});
@@ -884,7 +826,16 @@ class CaissierDashboard extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: kSurfaceColor, borderRadius: BorderRadius.circular(12)), child: Column(children: [const Text("Validées", style: TextStyle(fontSize: 12, color: Colors.white54)), Text("${docs.length}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))])),
+                    Container(
+                      padding: const EdgeInsets.all(12), 
+                      decoration: BoxDecoration(color: kSurfaceColor, borderRadius: BorderRadius.circular(12)), 
+                      child: Column(
+                        children: [
+                          const Text("Validées", style: TextStyle(fontSize: 12, color: Colors.white54)), 
+                          Text("${docs.length}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
+                        ]
+                      )
+                    ),
                   ],
                 ),
               ),
@@ -944,11 +895,13 @@ class ChatInterface extends StatefulWidget {
 class _ChatInterfaceState extends State<ChatInterface> {
   final List<Map<String, String>> _messages = [];
   final _textController = TextEditingController();
+  
   @override
   void initState() {
     super.initState();
     _messages.add({"sender": "bot", "text": widget.msgBot});
   }
+  
   void _envoyerMessage() {
     final texte = _textController.text.trim();
     if (texte.isEmpty) return;
@@ -964,6 +917,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
       }
     });
   }
+  
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -993,7 +947,16 @@ class _ChatInterfaceState extends State<ChatInterface> {
           child: Row(
             children: [
               Expanded(
-                child: TextField(controller: _textController, decoration: InputDecoration(hintText: widget.hintText, filled: true, fillColor: kSurfaceColor, border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none)))),
+                child: TextField(
+                  controller: _textController, 
+                  decoration: InputDecoration(
+                    hintText: widget.hintText, 
+                    filled: true, 
+                    fillColor: kSurfaceColor, 
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none)
+                  )
+                )
+              ),
               const SizedBox(width: 8),
               IconButton(icon: const Icon(Icons.send, color: kPrimaryColor), onPressed: _envoyerMessage)
             ],
@@ -1001,20 +964,5 @@ class _ChatInterfaceState extends State<ChatInterface> {
         )
       ],
     );
-  }
-}
-        return "Voici le rapport flash de ${RestaurantConfig.name}, Chef :\n\n"
-            "• Chiffre d'affaires : **$chiffreAffaires MRU**\n"
-            "• Commandes en attente : **$commandesAttente**\n"
-            "• Commandes livrées : **$commandesLivrees**\n"
-            "• Total commandes enregistrées : **${docs.length}**\n\n"
-            "Tout tourne correctement à ${RestaurantConfig.city} ! 🚀";
-      }
-
-      // Réponse par défaut si la question est générale
-      return "Je suis à vos ordres, Directeur. Je peux vous donner le chiffre d'affaires, le statut des caisses ou le résumé global des commandes. Que voulez-vous savoir ? 🍳";
-    } catch (e) {
-      return "Désolé Chef, j'ai eu un problème pour lire la base de données : ${e.toString()}";
-    }
   }
 }
