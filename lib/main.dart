@@ -10,8 +10,16 @@ import 'widgets/restaurant_logo.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await NotificationService.instance.init();
+  
+  try {
+    // Initialisation sécurisée de Firebase
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await NotificationService.instance.init();
+  } catch (e) {
+    // Évite de bloquer l'application en cas d'erreur de chargement réseau au démarrage
+    print("Erreur d'initialisation Firebase : $e");
+  }
+
   runApp(const ShokugekiMenuApp());
 }
 
@@ -46,15 +54,19 @@ class _AppGatekeeper extends StatelessWidget {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('configuration')
-          .doc('statut')
+          .doc('boutique')
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return Scaffold(
-            backgroundColor: kSecondaryColor,
-            body:
-                Center(child: CircularProgressIndicator(color: kPrimaryColor)),
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: kBackgroundColor,
+            body: Center(child: CircularProgressIndicator(color: kPrimaryColor)),
           );
+        }
+
+        // Si Firestore est vide ou pas encore configuré, on laisse l'accès au LoginScreen par défaut
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const LoginScreen();
         }
 
         var data = snapshot.data!.data() as Map<String, dynamic>?;
@@ -68,7 +80,7 @@ class _AppGatekeeper extends StatelessWidget {
             body: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Center(
-                child: Column(
+                child: Column backing;
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const RestaurantLogo(size: 70),

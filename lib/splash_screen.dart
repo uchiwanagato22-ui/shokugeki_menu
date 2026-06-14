@@ -28,8 +28,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       CurvedAnimation(parent: _controller, curve: Curves.easeIn),
     );
     _controller.forward();
+    
+    // Après 2.2 secondes, on change l'état pour afficher l'application principale
     Future.delayed(const Duration(milliseconds: 2200), () {
-      if (mounted) setState(() => _showMain = true);
+      if (mounted) {
+        setState(() {
+          _showMain = true;
+        });
+      }
     });
   }
 
@@ -41,10 +47,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    if (_showMain) return widget.child;
+    // CORRECTION : Si le temps est écoulé, on affiche enfin l'application (_AppGatekeeper) !
+    if (_showMain) {
+      return widget.child;
+    }
 
     return Scaffold(
-      backgroundColor: RestaurantConfig.secondaryColor,
+      backgroundColor: const Color(0xFF0F1724), // kBackgroundColor original
       body: Center(
         child: AnimatedBuilder(
           animation: _controller,
@@ -64,7 +73,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               const SizedBox(height: 24),
               Text(
                 RestaurantConfig.name.toUpperCase(),
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
@@ -74,16 +83,16 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               const SizedBox(height: 8),
               Text(
                 RestaurantConfig.slogan,
-                style: TextStyle(color: RestaurantConfig.primaryColor, fontSize: 13),
+                style: const TextStyle(color: Color(0xFFFF4500), fontSize: 13), // primaryColor
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
-              SizedBox(
+              const SizedBox(
                 width: 28,
                 height: 28,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: RestaurantConfig.primaryColor,
+                  color: Color(0xFFFF4500),
                 ),
               ),
             ],
