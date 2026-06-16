@@ -21,9 +21,9 @@ class NotificationService {
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
 
-    // CORRECTION SYNTAXE : Passage obligatoire en paramètre nommé pour cette version du package
+    // CORRECTION SYNTAXE : Ajout explicite du paramètre nommé requis par le compilateur
     await _local.initialize(
-      initializationSettings,
+      initializationSettings: initializationSettings,
     );
 
     await _local
@@ -44,7 +44,7 @@ class NotificationService {
       if (token != null) {
         await FirebaseFirestore.instance.collection('utilisateurs').doc(uid).set(
             {'fcm_token': token},
-            SetOptions(merge: true)); // Évite le crash si le document n'existe pas
+            SetOptions(merge: true));
       }
     } catch (e) {
       print("Erreur token FCM : $e");
@@ -57,7 +57,6 @@ class NotificationService {
 
     _watchedUid = uid;
 
-    // On suit uniquement les commandes appartenant à cet ID utilisateur précis
     FirebaseFirestore.instance
         .collection('commandes')
         .where('userId', isEqualTo: uid)
@@ -127,7 +126,6 @@ class NotificationService {
 
     const notificationDetails = NotificationDetails(android: androidDetails);
 
-    // CORRECTION SYNTAXE 2 : Tous les paramètres de la version 22.0.0 doivent être explicitement nommés
     await _local.show(
       id: id,
       title: titre,
