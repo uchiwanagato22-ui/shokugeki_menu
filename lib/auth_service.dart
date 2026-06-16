@@ -1,76 +1,83 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // --- INSCRIPTION D'UN CLIENT ---
-  Future<User?> inscrireClient({
-    required String email,
-    required String password,
+  // Vérifier si l'application est activée par l'administrateur
+  Future<Map<String, dynamic>> verifierStatutApplication() async {
+    try {
+      DocumentSnapshot snap = await _db.collection('statut').doc('statut').get();
+      if (snap.exists) {
+        return {
+          'is_active': snap.get('is_active') ?? false,
+          'message': snap.get('message_blocage') ?? 'Application suspendue.',
+        };
+      }
+    } catch (e) {
+      print("Erreur statut application: $e");
+    }
+    return {'is_active': false, 'message': 'Erreur de connexion au serveur.'};
+  }
+
+  // Connexion du Client (Email / Mot de passe)
+  Future<UserCredential?> connecterClient(String email, String password) async {
+    try {
+      return await _auth.signInWithEmailAndPassword(email: email, password: password);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Inscription du Client avec création de son profil complet (Gratuit)
+  Future<UserCredential?> inscrireClient({
     required String nom,
+    required String email,
     required String telephone,
+    required String password,
   }) async {
     try {
-      // 1. Création du compte dans Firebase Auth
-      UserCredential result = await _auth.createUserWithEmailAndPassword(
+      UserCredential res = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      User? user = result.user;
-
-      if (user != null) {
-        // 2. Enregistrement des infos et du rôle dans Firestore
-        await _db.collection('utilisateurs').doc(user.uid).set({
-          'uid': user.uid,
+      
+      if (res.user != null) {
+        await _db.collection('clients').doc(res.user!.uid).set({
           'nom': nom,
           'email': email,
           'telephone': telephone,
-          'role':
-              'Client', // Par défaut, toute inscription via l'app est un client
-          'date_creation': FieldValue.serverTimestamp(),
+          'reperes_favoris': '',
+          'date_inscription': FieldValue.serverTimestamp(),
         });
       }
-      return user;
+      return res;
     } catch (e) {
-      print("Erreur d'inscription : ${e.toString()}");
-      return null;
+      rethrow;
     }
   }
 
-  // --- CONNEXION GLOBAL (Client, Caissier, Livreur) ---
-  Future<String?> connecterUtilisateur({
-    required String email,
-    required String password,
-  }) async {
+  // Connexion du Personnel via ton système de Code Secret à 4 chiffres
+  Future<String?> connecterPersonnel(String codeSecret) async {
     try {
-      // 1. Connexion via Firebase Auth
-      UserCredential result = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      User? user = result.user;
+      QuerySnapshot snapshot = await _db
+          .collection('personnel')
+          .where('code_secret', isEqualTo: codeSecret)
+          .get();
 
-      if (user != null) {
-        // 2. Récupération du rôle dans Firestore
-        DocumentSnapshot doc =
-            await _db.collection('utilisateurs').doc(user.uid).get();
-        if (doc.exists) {
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          return data['role'] ??
-              'Client'; // Renvoie le rôle exact (Client, Caissier, Livreur)
-        }
+      if (snapshot.docs.isNotEmpty) {
+        // Retourne le rôle trouvé : caissier, livreur, cuisine, ou directeur
+        return snapshot.docs.first.get('role') as String;
       }
-      return null;
     } catch (e) {
-      print("Erreur de connexion : ${e.toString()}");
-      return null;
+      print("Erreur connexion personnel: $e");
     }
+    return null;
   }
 
-  // --- DÉCONNEXION ---
-  Future<void> deconnexion() async {
+  // Déconnexion universelle
+  Future<void> deconnecter() async {
     await _auth.signOut();
   }
 }

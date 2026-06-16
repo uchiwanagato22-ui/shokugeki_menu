@@ -1,256 +1,367 @@
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
-import 'branding_service.dart';
-import 'constants.dart';
+import 'package:geolocator/geolocator.dart';
+import '../widgets/developer_contact_button.dart';
 
 class ClientCartScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> cartItems;
-
-  const ClientCartScreen({super.key, required this.cartItems});
+  const ClientCartScreen({Key? key}) : super(key: key);
 
   @override
   State<ClientCartScreen> createState() => _ClientCartScreenState();
 }
 
 class _ClientCartScreenState extends State<ClientCartScreen> {
-  final BrandingService _branding = BrandingService();
-  String _paymentMethod = "Cash";
-  final TextEditingController _transactionController = TextEditingController();
-  final TextEditingController _addressDetailsController = TextEditingController();
-  final TextEditingController _promoController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  int _reduction = 0;
-  bool _promoAppliquee = false;
+  // Liste de simulation du panier (sera connectée à ton State Management ou Singleton de gestion de panier)
+  final List<Map<String, dynamic>> _articlesPanier = [
+    {"id": "plat_1", "nom": "Thieb de la Cité", "prix": 250, "quantite": 2},
+    {"id": "plat_2", "nom": "Kebab Shokugeki", "prix": 180, "quantite": 1},
+  ];
 
-  int _subtotal() {
-    return widget.cartItems.fold(0, (total, item) => total + (item["prix"] * item["quantite"] as int));
-  }
+  // Configuration des zones de livraison de Nouakchott (facilement modifiable pour Dakar, Bamako, etc.)
+  final Map<String, double> _zonesLivraison = {
+    "Tevragh Zeina": 60.0,
+    "Ksar": 50.0,
+    "Arafat": 80.0,
+    "Dar Naim": 90.0,
+    "Sebkha": 70.0,
+    "El Mina": 70.0,
+  };
 
-  void _modifierQuantite(int index, int delta) {
-    final q = (widget.cartItems[index]['quantite'] as int) + delta;
-    if (q <= 0) {
-      widget.cartItems.removeAt(index);
-    } else {
-      widget.cartItems[index]['quantite'] = q;
-    }
-    setState(() {});
-  }
+  String? _zoneSelectionnee;
+  double _fraisLivraison = 0.0;
+  String _modePaiement = "A la livraison"; // Options : "A la livraison", "Bankily / Masrvi"
 
-  void _appliquerPromo(BrandingData brand) {
-    if (_promoController.text.trim().toUpperCase() == brand.codePromo.toUpperCase()) {
-      setState(() {
-        _reduction = brand.reductionPromoMru;
-        _promoAppliquee = true;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Code promo appliqué : -$_reduction MRU 🎉"), backgroundColor: Colors.green),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Code promo invalide"), backgroundColor: Colors.red),
-      );
-    }
-  }
+  final _reperesController = TextEditingController();
+  bool _isLocating = false;
+  bool _isSubmitting = false;
+  
+  double _latitude = 0.0;
+  double _longitude = 0.0;
+  bool _gpsCapture = false;
 
   @override
-  void dispose() {
-    _transactionController.dispose();
-    _addressDetailsController.dispose();
-    _promoController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _chargerReperesFavoris();
   }
 
-  void _passerCommande(int deliveryFee) async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final User? currentUser = FirebaseAuth.instance.currentUser;
-    String clientNom = "Client Anonyme";
-    String clientPhone = "Non renseigné";
-    String? clientUid = currentUser?.uid;
-
-    if (currentUser != null) {
-      var userDoc = await FirebaseFirestore.instance.collection('utilisateurs').doc(currentUser.uid).get();
-      if (userDoc.exists) {
-        clientNom = userDoc.data()?['nom'] ?? currentUser.email ?? clientNom;
-        clientPhone = userDoc.data()?['telephone'] ?? clientPhone;
-      } else {
-        clientNom = currentUser.email ?? clientNom;
+  // Charge automatiquement les repères favoris du client pour lui faire gagner du temps
+  Future<void> _chargerReperesFavoris() async {
+    User? user = _auth.currentUser;
+    if (user != null) {
+      DocumentSnapshot doc = await _db.collection('clients').doc(user.uid).get();
+      if (doc.exists && doc.data() != null) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        if (data['reperes_favoris'] != null && data['reperes_favoris'].toString().isNotEmpty) {
+          setState(() {
+            _reperesController.text = data['reperes_favoris'];
+          });
+        }
       }
     }
+  }
 
-    final total = (_subtotal() + deliveryFee - _reduction).clamp(0, 999999);
+  // Calcul du sous-total des articles
+  double get _sousTotal {
+    return _articlesPanier.fold(0, (sum, item) => sum + (item['prix'] * item['quantite']));
+  }
+
+  // Capturer la position GPS exacte du client
+  Future<void> _capturerPositionGPS() async {
+    setState(() => _isLocating = true);
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Les permissions GPS sont définitivement refusées.")),
+        );
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+        _gpsCapture = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Position GPS capturée avec succès ! 🎯")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur de géolocalisation : ${e.toString()}")),
+      );
+    } finally {
+      setState(() => _isLocating = false);
+    }
+  }
+
+  // Envoyer la commande à Firestore
+  Future<void> _validerCommande() async {
+    if (_zoneSelectionnee == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Veuillez choisir votre quartier pour la livraison.")));
+      return;
+    }
+    if (_reperesController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Veuillez indiquer un repère précis (ex: Près de la Mosquée verte).")));
+      return;
+    }
+    if (!_gpsCapture) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Veuillez cliquer sur le bouton GPS pour localiser votre adresse.")));
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    User? user = _auth.currentUser;
 
     try {
-      await FirebaseFirestore.instance.collection('commandes').add({
-        'client': clientNom,
-        'phone': clientPhone,
-        'client_uid': clientUid,
-        'plats': widget.cartItems.map((item) => "${item['quantite']}x ${item['nom']}").join(", "),
-        'total': total,
-        'reduction_promo': _reduction,
-        'type_paiement': _paymentMethod,
-        'ref_transaction': _paymentMethod == "Bankily" || _paymentMethod == "Masrvi" ? _transactionController.text.trim() : '-',
-        'statut': 'En attente de validation',
-        'adresse': _addressDetailsController.text.trim(),
+      // 1. On récupère les infos de contact du client
+      String nomClient = "Client Anonyme";
+      String telClient = "Non renseigné";
+      
+      if (user != null) {
+        DocumentSnapshot clientDoc = await _db.collection('clients').doc(user.uid).get();
+        if (clientDoc.exists) {
+          nomClient = clientDoc.get('nom') ?? "Client";
+          telClient = clientDoc.get('telephone') ?? "";
+        }
+        
+        // Mettre à jour les repères favoris du client pour sa prochaine commande
+        await _db.collection('clients').doc(user.uid).update({
+          'reperes_favoris': _reperesController.text.trim(),
+        });
+      }
+
+      // 2. On crée le document de la commande avec le statut initial en minuscule
+      await _db.collection('commandes').add({
+        'client_id': user?.uid ?? 'invite',
+        'client_nom': nomClient,
+        'client_telephone': telClient,
+        'articles': _articlesPanier,
+        'sous_total': _sousTotal,
+        'frais_livraison': _fraisLivraison,
+        'total': _sousTotal + _fraisLivraison,
+        'quartier': _zoneSelectionnee,
+        'reperes_adresse': _reperesController.text.trim(),
+        'latitude': _latitude,
+        'longitude': _longitude,
+        'mode_paiement': _modePaiement,
+        'statut': 'en_attente', // Géré par le caissier au niveau 3
         'date_commande': FieldValue.serverTimestamp(),
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Commande enregistrée ! En attente de validation... 🚀"), backgroundColor: Colors.green),
-        );
-        widget.cartItems.clear();
-        Navigator.pop(context);
-      }
+      // 3. Succès et nettoyage
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text("Commande Envoyée ! 🎉"),
+          content: const Text("Votre commande a bien été reçue par le caissier. Suivez votre notification de confirmation."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Ferme le dialogue
+                Navigator.pop(context); // Retour à l'accueil
+              },
+              child: const Text("Super"),
+            )
+          ],
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erreur : ${e.toString()}"), backgroundColor: Colors.red),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur lors de la validation : ${e.toString()}")),
+      );
+    } finally {
+      setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<BrandingData>(
-      stream: _branding.watchBranding(),
-      builder: (context, brandingSnap) {
-        final brand = brandingSnap.data ?? BrandingData.defaults();
-        final total = (_subtotal() + brand.fraisLivraison - _reduction).clamp(0, 999999);
+    double totalGeneral = _sousTotal + _fraisLivraison;
 
-        return Scaffold(
-          backgroundColor: kBackgroundColor,
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            title: const Text("MON PANIER", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-            leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.pop(context)),
-          ),
-          body: Form(
-            key: _formKey,
-            child: widget.cartItems.isEmpty
-                ? const Center(child: Text("Votre panier est vide 🛒", style: TextStyle(fontSize: 16, color: Colors.grey)))
-                : Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: widget.cartItems.length,
-                            itemBuilder: (context, index) {
-                              final item = widget.cartItems[index];
-                              return Card(
-                                margin: const EdgeInsets.symmetric(vertical: 6),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(item["nom"], style: const TextStyle(fontWeight: FontWeight.bold)),
-                                            Text("${item["prix"]} MRU / unité", style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                                          ],
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.remove_circle_outline, color: Colors.grey),
-                                        onPressed: () => _modifierQuantite(index, -1),
-                                      ),
-                                      Text("${item["quantite"]}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                      IconButton(
-                                        icon: const Icon(Icons.add_circle_outline, color: kPrimaryColor),
-                                        onPressed: () => _modifierQuantite(index, 1),
-                                      ),
-                                      Text(
-                                        "${item["prix"] * item["quantite"]} MRU",
-                                        style: const TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Mon Panier Shokugeki"),
+        backgroundColor: Colors.deepOrange,
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Liste des articles
+            Expanded(
+              flex: 2,
+              child: ListView.builder(
+                itemCount: _articlesPanier.length,
+                itemBuilder: (context, index) {
+                  final item = _articlesPanier[index];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: ListTile(
+                      title: Text(item['nom'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text("${item['prix']} MRU x ${item['quantite']}"),
+                      trailing: Text(
+                        "${item['prix'] * item['quantite']} MRU",
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // Formulaire de Livraison et Paiement
+            Expanded(
+              flex: 4,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 2)],
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("1. Options de Livraison", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+
+                      // Sélection du Quartier
+                      DropdownButtonFormField<String>(
+                        value: _zoneSelectionnee,
+                        hint: const Text("Sélectionnez votre quartier"),
+                        decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12)),
+                        items: _zonesLivraison.keys.map((String zone) {
+                          return DropdownMenuItem<String>(
+                            value: zone,
+                            child: Text("$zone (+${_zonesLivraison[zone]} MRU)"),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _zoneSelectionnee = value;
+                            _fraisLivraison = _zonesLivraison[value] ?? 0.0;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 15),
+
+                      // Repères Textuels de l'adresse
+                      TextField(
+                        controller: _reperesController,
+                        decoration: const InputDecoration(
+                          labelText: "Repères précis (Mosquée, école, couleur porte...)",
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.location_city),
+                        ),
+                        maxLength: 150,
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Bouton de capture GPS
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _isLocating ? null : _capturerPositionGPS,
+                          icon: Icon(_gpsCapture ? Icons.gps_fixed : Icons.gps_not_fixed, color: Colors.deepOrange),
+                          label: Text(
+                            _isLocating 
+                              ? "Localisation en cours..." 
+                              : (_gpsCapture ? "Position GPS Verrouillée ✓" : "Capturer ma position GPS exacte"),
+                            style: const TextStyle(color: Colors.black87),
                           ),
+                          style: OutlinedButton.styleFrom(side: BorderSide(color: _gpsCapture ? Colors.green : Colors.grey)),
                         ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _promoController,
-                                decoration: const InputDecoration(hintText: "Code promo", labelText: "Promo"),
-                                enabled: !_promoAppliquee,
-                              ),
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      const Text("2. Mode de Paiement", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RadioListTile<String>(
+                              title: const Text("Espèces", style: TextStyle(fontSize: 13)),
+                              value: "A la livraison",
+                              groupValue: _modePaiement,
+                              onChanged: (val) => setState(() => _modePaiement = val!),
                             ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: _promoAppliquee ? null : () => _appliquerPromo(brand),
-                              style: ElevatedButton.styleFrom(backgroundColor: kPrimaryColor),
-                              child: const Text("OK", style: TextStyle(color: Colors.white)),
+                          ),
+                          Expanded(
+                            child: RadioListTile<String>(
+                              title: const Text("Mobile Bank", style: TextStyle(fontSize: 13)),
+                              value: "Bankily / Masrvi",
+                              groupValue: _modePaiement,
+                              onChanged: (val) => setState(() => _modePaiement = val!),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: _paymentMethod,
-                          decoration: const InputDecoration(labelText: "Moyen de paiement"),
-                          items: ["Cash", "Bankily", "Masrvi"]
-                              .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                              .toList(),
-                          onChanged: (val) => setState(() => _paymentMethod = val!),
-                        ),
-                        if (_paymentMethod != "Cash") ...[
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _transactionController,
-                            decoration: const InputDecoration(labelText: "ID Transaction"),
-                            validator: (v) => v == null || v.trim().isEmpty ? "Obligatoire" : null,
                           ),
                         ],
-                        const SizedBox(height: 10),
-                        TextFormField(
-                          controller: _addressDetailsController,
-                          decoration: InputDecoration(hintText: "Ex: ${brand.zone}...", labelText: "Adresse précise"),
-                          validator: (v) => v == null || v.trim().isEmpty ? "Obligatoire" : null,
-                        ),
-                        const SizedBox(height: 12),
-                        _lignePrix("Sous-total", "${_subtotal()} MRU"),
-                        _lignePrix("Livraison", "${brand.fraisLivraison} MRU"),
-                        if (_reduction > 0) _lignePrix("Réduction promo", "-$_reduction MRU", color: Colors.green),
-                        const Divider(),
-                        _lignePrix("Total", "$total MRU", bold: true),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () => _passerCommande(brand.fraisLivraison),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: kSecondaryColor,
-                            minimumSize: const Size(double.infinity, 50),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: const Text("Confirmer ma commande", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ),
-                  ),
-          ),
-        );
-      },
-    );
-  }
+                      ),
 
-  Widget _lignePrix(String label, String valeur, {bool bold = false, Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal, fontSize: bold ? 16 : 14)),
-          Text(valeur, style: TextStyle(color: color ?? (bold ? kPrimaryColor : Colors.grey), fontWeight: bold ? FontWeight.bold : FontWeight.normal, fontSize: bold ? 20 : 14)),
-        ],
+                      const Divider(),
+
+                      // Facture Finale
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.between,
+                        children: [
+                          const Text("Sous-total :"),
+                          Text("$_sousTotal MRU"),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.between,
+                        children: [
+                          const Text("Livraison :"),
+                          Text("+$_fraisLivraison MRU"),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.between,
+                        children: [
+                          const Text("TOTAL À PAYER :", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
+                          Text("$totalGeneral MRU", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
+                        ],
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Bouton de Validation final
+                      _isSubmitting
+                          ? const Center(child: CircularProgressIndicator())
+                          : SizedBox(
+                              width: double.infinity,
+                              height: 50,
+                              child: ElevatedButton(
+                                onPressed: _validerCommande,
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
+                                child: const Text("Confirmer et commander", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                      const SizedBox(height: 15),
+                      const Center(child: DeveloperContactButton()),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

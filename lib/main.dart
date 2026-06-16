@@ -3,11 +3,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// --- IMPORTS CORRIGÉS D'APRÈS TES FICHIERS REELS ---
-import 'directeur_dashboard_screen.dart'; // Nom du fichier corrigé en français
+// --- IMPORTS REELS ET CORRIGÉS ---
+import 'directeur_dashboard_screen.dart'; 
 import 'caissier_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
-import 'restaurant_workflows.dart'; // Retrait du "_2" inutile !
+import 'restaurant_workflows.dart'; 
+import 'default_menu_plats.dart'; // Importation de tes plats par défaut
 
 const Color kPrimaryColor = Color(0xFF2196F3); 
 const Color kBackgroundColor = Color(0xFF090A0F);
@@ -24,12 +25,29 @@ void main() async {
 class ShokugekiMenuApp extends StatelessWidget {
   const ShokugekiMenuApp({super.key});
 
-  Future<FirebaseApp> _initFirebase() async {
-    // Correction du type de retour pour le timeout Firebase
-    return await Firebase.initializeApp().timeout(
+  // Initialisation de Firebase + Injection Automatique si vide
+  Future<FirebaseApp> _initFirebaseEtVerifierMenu() async {
+    FirebaseApp app = await Firebase.initializeApp().timeout(
       const Duration(seconds: 8),
       onTimeout: () => throw Exception("Firebase ne répond pas."),
     );
+
+    // Vérification et remplissage automatique de la base au premier démarrage
+    final menuSnapshot = await FirebaseFirestore.instance.collection('menu').limit(1).get();
+    if (menuSnapshot.docs.isEmpty) {
+      for (var plat in kPlatsExempleMauritanie) {
+        await FirebaseFirestore.instance.collection('menu').add({
+          'nom': plat['nom'],
+          'description': plat['description'],
+          'prix': plat['prix'],
+          'categorie': plat['categorie'],
+          'image': plat['image'],
+          'disponible': true,
+          'date_creation': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+    return app;
   }
 
   @override
@@ -46,7 +64,7 @@ class ShokugekiMenuApp extends StatelessWidget {
         ),
       ),
       home: FutureBuilder(
-        future: _initFirebase(),
+        future: _initFirebaseEtVerifierMenu(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && !snapshot.hasError) {
             return const LoginScreen();
@@ -106,7 +124,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
         Widget cible = const ClientMainScreen();
         
-        // CORRECTION : Association propre avec le nom réel de tes classes de dashboards
         if (role == 'directeur') cible = const DirectorDashboardScreen(); 
         if (role == 'caissier') cible = const CaissierDashboardScreen();
         if (role == 'cuisine') cible = const KitchenDashboard();
@@ -230,11 +247,13 @@ class MenuClientPage extends StatefulWidget {
 
 class _MenuClientPageState extends State<MenuClientPage> {
   String _selectedCategory = "Tout";
-  final List<String> _categories = ["Tout", "Burgers", "Pizzas", "Poulet"];
+  
+  // Correction : Liste complète synchronisée avec kPlatsExempleMauritanie
+  final List<String> _categories = ["Tout", "Burgers", "Pizzas", "Poulet", "Divers", "Desserts", "Boissons"];
 
   @override
   Widget build(BuildContext context) {
-    Query query = FirebaseFirestore.instance.collection('menu');
+    Query query = FirebaseFirestore.instance.collection('menu').where('disponible', isEqualTo: true);
     if (_selectedCategory != "Tout") {
       query = query.where('categorie', isEqualTo: _selectedCategory);
     }
@@ -273,6 +292,9 @@ class _MenuClientPageState extends State<MenuClientPage> {
             child: StreamBuilder<QuerySnapshot>(
               stream: query.snapshots(),
               builder: (context, snapshot) {
+                if (!snapshot.hasError && snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 final docs = snapshot.data!.docs;
                 if (docs.isEmpty) {
@@ -283,16 +305,36 @@ class _MenuClientPageState extends State<MenuClientPage> {
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
                     final item = docs[index].data() as Map<String, dynamic>;
+                    
+                    // Extraction dynamique des données de Firestore
+                    String nomPlat = item['nom'] ?? 'Plat';
+                    String descPlat = item['description'] ?? '';
+                    String imgPlat = item['image'] ?? 'https://via.placeholder.com/150';
+                    var prixPlat = item['prix'] ?? 0;
+
                     return Card(
                       color: kSurfaceColor,
-                      // CORRECTION FINALE : Syntaxe correcte pour la marge du bas
                       margin: const EdgeInsets.only(bottom: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(16),
-                        title: Text(item['nom'] ?? 'Plat', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                        subtitle: Text(item['description'] ?? '', style: const TextStyle(color: Colors.white54)),
-                        trailing: Text("${item['categorie'] == 'Burgers' ? '250' : '200'} MRU", style: const TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            imgPlat, 
+                            width: 60, 
+                            height: 60, 
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.fastfood, size: 40, color: Colors.grey),
+                          ),
+                        ),
+                        title: Text(nomPlat, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                        subtitle: Text(descPlat, style: const TextStyle(color: Colors.white54), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        // CORRECTION DYNAMIQUE : On affiche le vrai prix du document Firestore
+                        trailing: Text(
+                          "$prixPlat MRU", 
+                          style: const TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold, fontSize: 16)
+                        ),
                       ),
                     );
                   },

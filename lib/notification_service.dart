@@ -7,8 +7,7 @@ class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
 
-  final FlutterLocalNotificationsPlugin _local =
-      FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _local = FlutterLocalNotificationsPlugin();
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
 
   bool _initialized = false;
@@ -17,12 +16,13 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
 
+    // Utilisation d'une icône générique sécurisée si launcher_icon échoue
     const initializationSettings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/launcher_icon'),
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
 
     await _local.initialize(
-      settings: initializationSettings,
+      initializationSettings,
     );
 
     await _local
@@ -44,7 +44,7 @@ class NotificationService {
         await FirebaseFirestore.instance
             .collection('utilisateurs')
             .doc(uid)
-            .update({'fcm_token': token});
+            .set({'fcm_token': token}, SetOptions(merge: true)); // Utilisation de merge pour éviter de crash si le doc n'existe pas
       }
     } catch (e) {
       print("Erreur token FCM : $e");
@@ -56,17 +56,18 @@ class NotificationService {
     if (uid == null || _watchedUid == uid) return;
 
     _watchedUid = uid;
+    
+    // CORRECTION : On suit uniquement les commandes appartenant à cet ID utilisateur précis !
     FirebaseFirestore.instance
         .collection('commandes')
-        .where('phone',
-            isNotEqualTo: '') // Juste pour filtrer un champ existant
+        .where('userId', isEqualTo: uid) 
         .snapshots()
         .listen((snapshot) {
       for (var doc in snapshot.docChanges) {
         if (doc.type == DocumentChangeType.modified) {
           final data = doc.doc.data() as Map<String, dynamic>;
           final statut = data['statut'] ?? '';
-          final cmdId = doc.doc.id.substring(0, 5);
+          final cmdId = doc.doc.id.length > 5 ? doc.doc.id.substring(0, 5) : doc.doc.id;
 
           final message = _messagePourStatut(statut, cmdId);
           if (message != null) {
@@ -85,8 +86,7 @@ class NotificationService {
     _watchedUid = null;
   }
 
-  ({String titre, String corps})? _messagePourStatut(
-      String statut, String cmdId) {
+  ({String titre, String corps})? _messagePourStatut(String statut, String cmdId) {
     switch (statut) {
       case 'En cuisine':
         return (
@@ -106,28 +106,31 @@ class NotificationService {
       case 'Rejeté / Fraude suspectée':
         return (
           titre: "Commande rejetée ❌",
-          corps: "Commande #$cmdId : problème de paiement."
+          corps: "Commande #$cmdId : problème de traitement."
         );
       default:
         return null;
     }
   }
 
-  Future<void> _afficher(
-      {required int id, required String titre, required String corps}) async {
+  Future<void> _afficher({required int id, required String titre, required String corps}) async {
     const androidDetails = AndroidNotificationDetails(
       'commandes_channel',
       'Suivi des commandes',
+      channelDescription: 'Notifications de statut des commandes Shokugeki',
       importance: Importance.max,
       priority: Priority.high,
+      ticker: 'ticker',
     );
 
-    // CORRECTION : Utilisation complète des arguments nommés exigés par le package
+    const notificationDetails = NotificationDetails(android: androidDetails);
+
+    // CORRECTION SYNTAXE : Passage rigoureux des paramètres nommés requis
     await _local.show(
-      id: id,
-      title: titre,
-      body: corps,
-      notificationDetails: const NotificationDetails(android: androidDetails),
+      id,
+      titre,
+      corps,
+      notificationDetails,
     );
   }
 }

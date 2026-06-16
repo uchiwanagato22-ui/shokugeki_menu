@@ -1,147 +1,220 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'constants.dart';
+import '../widgets/developer_contact_button.dart';
 
 class LivreurDashboardScreen extends StatefulWidget {
-  const LivreurDashboardScreen({super.key});
+  const LivreurDashboardScreen({Key? key}) : super(key: key);
 
   @override
   State<LivreurDashboardScreen> createState() => _LivreurDashboardScreenState();
 }
 
 class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
-  bool _isAvailable = true;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  Future<void> _ouvrirMaps(String adresse) async {
-    final String query = Uri.encodeComponent("$adresse, Nouakchott, Mauritanie");
-    final Uri googleMapsUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$query");
+  // Fonction pour appeler le client directement au téléphone
+  Future<void> _appelerClient(String telephone) async {
+    if (telephone.isEmpty) return;
+    // Nettoyage du numéro pour s'assurer qu'il passe correctement
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: telephone.replaceAll(' ', ''),
+    );
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Impossible de lancer l'appel")),
+      );
+    }
+  }
+
+  // Fonction surpuissante pour ouvrir Google Maps avec le combo GPS + Repères visuels
+  Future<void> _ouvrirItineraireMaps(double lat, double lng, String reperes) async {
+    // On encode le texte pour éviter les espaces et caractères spéciaux dans l'URL
+    final String queryText = Uri.encodeComponent("$reperes");
+    
+    // Structure d'URL universelle combinant les coordonnées géographiques et le repère africain
+    final String urlString = "https://www.google.com/maps/search/?api=1&query=$lat,$lng&query_place_id=$queryText";
+    final Uri googleMapsUrl = Uri.parse(urlString);
 
     if (await canLaunchUrl(googleMapsUrl)) {
       await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
     } else {
-      if (mounted) {
+      // Alternative standard si l'application Maps n'est pas installée
+      final Uri webMapsUrl = Uri.parse("https://maps.google.com/?q=$lat,$lng");
+      if (await canLaunchUrl(webMapsUrl)) {
+        await launchUrl(webMapsUrl, mode: LaunchMode.externalApplication);
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Impossible d'ouvrir Google Maps ❌"), backgroundColor: Colors.red),
+          const SnackBar(content: Text("Impossible d'ouvrir Google Maps")),
         );
       }
+    }
+  }
+
+  // Clôturer la livraison et encaisser l'argent
+  Future<void> _marquerCommandeLivree(String docId) async {
+    try {
+      await _db.collection('commandes').doc(docId).update({
+        'statut': 'livre',
+        'date_livraison_terminee': FieldValue.serverTimestamp(),
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Félicitations ! Commande livrée et validée. 🎉")),
+      );
+    } catch (e) {
+      print("Erreur validation livraison : $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF111115),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A22),
-        title: const Text("ZONE LIVREUR", style: TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold)),
-        actions: [
-          Row(
-            children: [
-              Text(_isAvailable ? "EN LIGNE" : "OFFLINE",
-                  style: TextStyle(color: _isAvailable ? Colors.green : Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
-              Switch(
-                value: _isAvailable,
-                activeThumbColor: Colors.green,
-                onChanged: (val) => setState(() => _isAvailable = val),
-              ),
-            ],
-          )
-        ],
+        title: const Text("Courses & Livraisons"),
+        backgroundColor: Colors.amber.shade900,
+        centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("SUIVI DES COURSES (NOUAKCHOTT)", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            const Text(
+              "Plats prêts à être livrés",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+            ),
+            const SizedBox(height: 10),
+
+            // Écoute en temps réel des commandes dont le statut est 'pret'
             Expanded(
-              child: _isAvailable
-                  ? StreamBuilder<QuerySnapshot>(
-                      stream: _db.collection('commandes').snapshots(),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(child: CircularProgressIndicator(color: kPrimaryColor));
-                        }
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _db.collection('commandes')
+                    .where('statut', isEqualTo: 'pret')
+                    .orderBy('date_fin_preparation', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(child: Text("Erreur : ${snapshot.error}"));
+                  }
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.data!.docs.isEmpty) {
+                    return const Center(
+                      child: Text("Aucune livraison en attente. Tout est à jour ! 🛵"),
+                    );
+                  }
 
-                        // Le livreur intercepte uniquement ce qui sort tout chaud de la cuisine
-                        final filtrerDocs = snapshot.data!.docs.where((doc) {
-                          String status = doc['statut'] ?? '';
-                          return status == 'pret_pour_livraison';
-                        }).toList();
+                  return ListView.builder(
+                    itemCount: snapshot.data!.docs.length,
+                    itemBuilder: (context, index) {
+                      var doc = snapshot.data!.docs[index];
+                      Map<String, dynamic> commande = doc.data() as Map<String, dynamic>;
+                      
+                      double lat = (commande['latitude'] ?? 0.0) as double;
+                      double lng = (commande['longitude'] ?? 0.0) as double;
+                      String reperes = commande['reperes_adresse'] ?? "";
+                      String telephone = commande['client_telephone'] ?? "";
 
-                        if (filtrerDocs.isEmpty) {
-                          return const Center(
-                              child: Text("Aucune course prête pour le moment. ☕", style: TextStyle(color: Colors.grey)));
-                        }
-
-                        return ListView.builder(
-                          itemCount: filtrerDocs.length,
-                          itemBuilder: (context, index) {
-                            var doc = filtrerDocs[index];
-                            String docId = doc.id;
-                            String cmdId = docId.substring(0, 5).toUpperCase();
-                            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(color: const Color(0xFF1A1A22), borderRadius: BorderRadius.circular(12)),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        elevation: 3,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // En-tête de la carte de livraison
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.between,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text("Commande #$cmdId", style: const TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold)),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(color: Colors.orange.withOpacity(0.2), borderRadius: BorderRadius.circular(6)),
-                                        child: const Text("À LIVRER", style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
-                                      )
-                                    ],
+                                  Text(
+                                    "Client : ${commande['client_nom']}",
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                   ),
-                                  const Divider(color: Colors.white10, height: 20),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text("📍 Adresse : ${data['adresse']}", style: const TextStyle(color: Colors.white70)),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.near_me, color: Colors.blueAccent, size: 22),
-                                        onPressed: () => _ouvrirMaps(data['adresse'] ?? ''),
-                                        tooltip: "Lancer le GPS",
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text("📞 Client : ${data['client'] ?? 'Inconnu'}", style: const TextStyle(color: Colors.white70)),
-                                  Text("📞 Téléphone : ${data['phone'] ?? '-'}", style: const TextStyle(color: Colors.white70)),
-                                  Text("🍔 Plats : ${data['plats'] ?? ''}", style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                                  const SizedBox(height: 8),
-                                  Text("Total : ${data['total']} MRU", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 12),
-                                  ElevatedButton.icon(
-                                    onPressed: () async {
-                                      await _db.collection('commandes').doc(docId).update({'statut': 'livre'});
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text("Commande $cmdId marquée comme Livrée ! 🎉"), backgroundColor: kPrimaryColor),
-                                      );
-                                    },
-                                    icon: const Icon(Icons.check_circle, color: Colors.white),
-                                    label: const Text("Marquer comme Livré", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(double.infinity, 42)),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, py: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade100,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      "${commande['quartier']}",
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                    ),
                                   ),
                                 ],
                               ),
-                            );
-                          },
-                        );
-                      })
-                  : const Center(child: Text("Passez en ligne pour charger le radar.", style: TextStyle(color: Colors.grey))),
+                              const Divider(),
+                              
+                              const SizedBox(height: 5),
+                              Text("🏠 Repère indiqué : ", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                              Text(reperes, style: const TextStyle(fontSize: 15, color: Colors.black87)),
+                              const SizedBox(height: 8),
+                              
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.between,
+                                children: [
+                                  Text("💰 Somme à encaisser :", style: TextStyle(color: Colors.grey.shade600)),
+                                  Text(
+                                    "${commande['total']} MRU",
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                "Méthode : ${commande['mode_paiement']}",
+                                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.blueGrey),
+                              ),
+                              const SizedBox(height: 15),
+
+                              // Actions du livreur : Appeler, Naviguer, Clôturer
+                              Row(
+                                children: [
+                                  // Bouton Appeler
+                                  IconButton(
+                                    onPressed: () => _appelerClient(telephone),
+                                    icon: const Icon(Icons.phone, color: Colors.blue, size: 28),
+                                    style: IconButton.styleFrom(backgroundColor: Colors.blue.shade50),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  
+                                  // Bouton GPS Navigation
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _ouvrirItineraireMaps(lat, lng, reperes),
+                                      icon: const Icon(Icons.navigation, color: Colors.white),
+                                      label: const Text("Itinéraire", style: TextStyle(color: Colors.white)),
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey.shade800),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+
+                                  // Bouton Terminer
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () => _marquerCommandeLivree(doc.id),
+                                      icon: const Icon(Icons.check, color: Colors.white),
+                                      label: const Text("Livré ✓", style: TextStyle(color: Colors.white)),
+                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade600),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
+            const DeveloperContactButton(),
+            const SizedBox(height: 10),
           ],
         ),
       ),

@@ -1,10 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FirestoreService {
-  // On récupère l'instance de la base de données Firestore
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // --- FONCTION POUR ENVOYER UNE COMMANDE ---
+  // --- ENVOYER UNE COMMANDE CLIENT ---
   Future<void> envoyerCommande({
     required String clientNom,
     required String clientPhone,
@@ -13,19 +12,27 @@ class FirestoreService {
     required String typePaiement,
     String? transactionId,
     required String adresseDetails,
+    required double latitude,
+    required double longitude,
+    required String reperesAdresse,
+    required String quartier,
+    required String userId,
   }) async {
     try {
       await _db.collection('commandes').add({
-        'client': clientNom,
-        'phone': clientPhone,
-        'plats': articles
-            .map((item) => "${item['quantite']}x ${item['nom']}")
-            .join(", "),
+        'client_nom': clientNom,
+        'client_telephone': clientPhone,
+        'articles': articles,
         'total': total,
-        'type_paiement': typePaiement,
+        'mode_paiement': typePaiement,
         'ref_transaction': transactionId ?? '-',
-        'statut': 'En attente de validation',
+        'statut': 'En attente', // Statut initial capté par le caissier
         'adresse': adresseDetails,
+        'latitude': latitude,
+        'longitude': longitude,
+        'reperes_adresse': reperesAdresse,
+        'quartier': quartier,
+        'userId': userId,
         'date_commande': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -33,8 +40,9 @@ class FirestoreService {
     }
   }
 
+  // --- OBTENIR LE MENU EN TEMPS RÉEL ---
   Stream<List<Map<String, dynamic>>> obtenirLeMenu() {
-    return _db.collection('plats').orderBy('nom').snapshots().map(
+    return _db.collection('menu').orderBy('nom').snapshots().map(
           (snapshot) => snapshot.docs
               .map((doc) => {
                     'id': doc.id,
@@ -44,39 +52,42 @@ class FirestoreService {
         );
   }
 
+  // --- AJOUTER UN PLAT ---
   Future<void> ajouterPlat({
     required String nom,
     required String description,
-    required int prix,
+    required double prix,
     required String categorie,
     required String image,
     required bool disponible,
   }) async {
     try {
-      await _db.collection('plats').add({
+      await _db.collection('menu').add({
         'nom': nom,
         'description': description,
         'prix': prix,
         'categorie': categorie,
         'image': image,
         'disponible': disponible,
+        'date_creation': FieldValue.serverTimestamp(),
       });
     } catch (e) {
       throw Exception("Erreur lors de l'ajout du plat : $e");
     }
   }
 
+  // --- MODIFIER UN PLAT ---
   Future<void> modifierPlat({
     required String id,
     required String nom,
     required String description,
-    required int prix,
+    required double prix,
     required String categorie,
     required String image,
     required bool disponible,
   }) async {
     try {
-      await _db.collection('plats').doc(id).update({
+      await _db.collection('menu').doc(id).update({
         'nom': nom,
         'description': description,
         'prix': prix,
@@ -89,36 +100,21 @@ class FirestoreService {
     }
   }
 
+  // --- SUPPRIMER UN PLAT ---
   Future<void> supprimerPlat(String id) async {
     try {
-      await _db.collection('plats').doc(id).delete();
+      await _db.collection('menu').doc(id).delete();
     } catch (e) {
       throw Exception("Erreur lors de la suppression du plat : $e");
     }
   }
 
+  // --- BASCULER LA DISPONIBILITÉ (Retirer/Afficher) ---
   Future<void> basculerDisponibilite(String id, bool disponible) async {
     try {
-      await _db.collection('plats').doc(id).update({'disponible': disponible});
+      await _db.collection('menu').doc(id).update({'disponible': disponible});
     } catch (e) {
       throw Exception("Erreur lors du basculement de disponibilité : $e");
-    }
-  }
-
-  Future<int> importerPlatsExemple(List<Map<String, dynamic>> plats) async {
-    try {
-      final batch = _db.batch();
-      for (final plat in plats) {
-        final docRef = _db.collection('plats').doc();
-        batch.set(docRef, {
-          ...plat,
-          'disponible': true,
-        });
-      }
-      await batch.commit();
-      return plats.length;
-    } catch (e) {
-      throw Exception("Erreur lors de l'import des plats exemples : $e");
     }
   }
 }
