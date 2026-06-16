@@ -21,8 +21,10 @@ class NotificationService {
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
 
-    // CORRECTION SYNTAXE 1 : L'objet de configuration est passé directement (argument positionnel)
-    await _local.initialize(initializationSettings);
+    // CORRECTION SYNTAXE : Passage obligatoire en paramètre nommé pour cette version du package
+    await _local.initialize(
+      initializationSettings,
+    );
 
     await _local
         .resolvePlatformSpecificImplementation<
