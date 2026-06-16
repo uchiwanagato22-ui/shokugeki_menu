@@ -44,7 +44,7 @@ class NotificationService {
         await FirebaseFirestore.instance
             .collection('utilisateurs')
             .doc(uid)
-            .set({'fcm_token': token}, SetOptions(merge: true)); // Utilisation de merge pour éviter de crash si le doc n'existe pas
+            .set({'fcm_token': token}, SetOptions(merge: true));
       }
     } catch (e) {
       print("Erreur token FCM : $e");
@@ -57,7 +57,6 @@ class NotificationService {
 
     _watchedUid = uid;
     
-    // CORRECTION : On suit uniquement les commandes appartenant à cet ID utilisateur précis !
     FirebaseFirestore.instance
         .collection('commandes')
         .where('userId', isEqualTo: uid) 
@@ -125,12 +124,13 @@ class NotificationService {
 
     const notificationDetails = NotificationDetails(android: androidDetails);
 
-    // CORRECTION SYNTAXE : Passage rigoureux des paramètres nommés requis
+    // CORRECTION SYNTAXE : id, titre, et corps sont passés en arguments positionnels (sans étiquettes)
+    // Seul le paramètre de configuration finale prend un argument nommé.
     await _local.show(
       id,
       titre,
       corps,
-      notificationDetails,
+      notificationDetails: notificationDetails,
     );
   }
 }

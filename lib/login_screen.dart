@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import 'auth_service.dart';
+import 'caissier_dashboard_screen.dart';
+import 'cuisine_screen.dart';
+import 'directeur_dashboard_screen.dart';
+import 'livreur_dashboard_screen.dart';
 import '../widgets/developer_contact_button.dart';
-import 'register_screen.dart'; // Écran d'inscription créé juste après
-// Importe tes dashboards ici dès qu'ils seront prêts
-// import 'client_home_screen.dart';
-// import 'caissier_dashboard_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -13,14 +14,15 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   TabController? _tabController;
   final AuthService _authService = AuthService();
-  
+
   // Controllers Client
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+
   // Controller Personnel
   final _codeController = TextEditingController();
 
@@ -34,7 +36,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   }
 
   Future<void> _verifierBlocageApplication() async {
-    Map<String, dynamic> statut = await _authService.verifierStatutApplication();
+    Map<String, dynamic> statut =
+        await _authService.verifierStatutApplication();
     if (!statut['is_active']) {
       _afficherDialogueBlocage(statut['message']);
     }
@@ -88,7 +91,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     setState(() => _isLoading = true);
 
     // 1. On interroge Firestore avec le code tapé
-    String? role = await _authService.connecterPersonnel(_codeController.text.trim());
+    String? role =
+        await _authService.connecterPersonnel(_codeController.text.trim());
     setState(() => _isLoading = false);
 
     if (role != null) {
@@ -125,6 +129,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,16 +140,21 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             children: [
               const SizedBox(height: 20),
               // Logo de l'application
-              Image.asset('assets/icon/logo.png', height: 100, errorBuilder: (c, e, s) {
-                return const Icon(Icons.restaurant_menu, size: 80, color: Colors.deepOrange);
+              Image.asset('assets/icon/logo.png', height: 100,
+                  errorBuilder: (c, e, s) {
+                return const Icon(Icons.restaurant_menu,
+                    size: 80, color: Colors.deepOrange);
               }),
               const SizedBox(height: 10),
               const Text(
                 "SHOKUGEKI MENU",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2),
+                style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2),
               ),
               const SizedBox(height: 30),
-              
+
               // Sélecteur d'onglets (Client vs Personnel)
               TabBar(
                 controller: _tabController,
@@ -156,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   Tab(text: "Personnel"),
                 ],
               ),
-              
+
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
@@ -168,41 +178,51 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           const SizedBox(height: 20),
                           TextField(
                             controller: _emailController,
-                            decoration: const InputDecoration(labelText: "Adresse Email", border: OutlineInputBorder()),
+                            decoration: const InputDecoration(
+                                labelText: "Adresse Email",
+                                border: OutlineInputBorder()),
                             keyboardType: TextInputType.emailAddress,
                           ),
                           const SizedBox(height: 15),
                           TextField(
                             controller: _passwordController,
-                            decoration: const InputDecoration(labelText: "Mot de passe", border: OutlineInputBorder()),
+                            decoration: const InputDecoration(
+                                labelText: "Mot de passe",
+                                border: OutlineInputBorder()),
                             obscureText: true,
                           ),
                           const SizedBox(height: 20),
-                          _isLoading 
-                            ? const CircularProgressIndicator()
-                            : SizedBox(
-                                width: double.infinity,
-                                height: 50,
-                                child: ElevatedButton(
-                                  onPressed: _connexionClient,
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
-                                  child: const Text("Se connecter", style: TextStyle(color: Colors.white)),
+                          _isLoading
+                              ? const CircularProgressIndicator()
+                              : SizedBox(
+                                  width: double.infinity,
+                                  height: 50,
+                                  child: ElevatedButton(
+                                    onPressed: _connexionClient,
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.deepOrange),
+                                    child: const Text("Se connecter",
+                                        style: TextStyle(color: Colors.white)),
+                                  ),
                                 ),
-                              ),
                           TextButton(
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
+                            onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const RegisterScreen())),
                             child: const Text("Créer un compte client"),
                           )
                         ],
                       ),
                     ),
-                    
+
                     // Vue Personnel
                     SingleChildScrollView(
                       child: Column(
                         children: [
                           const SizedBox(height: 40),
-                          const Text("Entrez votre code d'accès secret à 4 chiffres :"),
+                          const Text(
+                              "Entrez votre code d'accès secret à 4 chiffres :"),
                           const SizedBox(height: 20),
                           TextField(
                             controller: _codeController,
@@ -213,21 +233,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             ),
                             keyboardType: TextInputType.number,
                             obscureText: true,
-                            textAlign: Center,
+                            textAlign: TextAlign.center,
                             maxLength: 6,
                           ),
                           const SizedBox(height: 20),
-                          _isLoading 
-                            ? const CircularProgressIndicator()
-                            : SizedBox(
-                                width: double.infinity,
-                                height: 50,
-                                child: ElevatedButton(
-                                  onPressed: _connexionPersonnel,
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
-                                  child: const Text("Valider Code", style: TextStyle(color: Colors.white)),
+                          _isLoading
+                              ? const CircularProgressIndicator()
+                              : SizedBox(
+                                  width: double.infinity,
+                                  height: 50,
+                                  child: ElevatedButton(
+                                    onPressed: _connexionPersonnel,
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.black),
+                                    child: const Text("Valider Code",
+                                        style: TextStyle(color: Colors.white)),
+                                  ),
                                 ),
-                              ),
                         ],
                       ),
                     ),

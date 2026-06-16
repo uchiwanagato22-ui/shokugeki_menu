@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import 'auth_service.dart';
 import '../widgets/developer_contact_button.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -18,8 +18,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
 
   Future<void> _creerCompte() async {
-    if (_nomController.text.isEmpty || _emailController.text.isEmpty || _telController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Veuillez remplir tous les champs.")));
+    if (_nomController.text.isEmpty ||
+        _emailController.text.isEmpty ||
+        _telController.text.isEmpty ||
+        _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Veuillez remplir tous les champs.")));
       return;
     }
 
@@ -33,11 +37,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (credential != null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Compte créé avec succès !")));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Compte créé avec succès !")));
         Navigator.pop(context);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur d'inscription : ${e.toString()}")));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur d'inscription : ${e.toString()}")));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -58,38 +64,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               TextField(
                 controller: _nomController,
-                decoration: const InputDecoration(labelText: "Nom complet", border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: "Nom complet", border: OutlineInputBorder()),
               ),
               const SizedBox(height: 15),
               TextField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: "Adresse Email", border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: "Adresse Email", border: OutlineInputBorder()),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 15),
               TextField(
                 controller: _telController,
-                decoration: const InputDecoration(labelText: "Numéro de téléphone (Livrson)", border: OutlineInputBorder(), prefixText: "+ "),
+                decoration: const InputDecoration(
+                    labelText: "Numéro de téléphone (Livrson)",
+                    border: OutlineInputBorder(),
+                    prefixText: "+ "),
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 15),
               TextField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: "Mot de passe", border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: "Mot de passe", border: OutlineInputBorder()),
                 obscureText: true,
               ),
               const SizedBox(height: 25),
-              _isLoading 
-                ? const CircularProgressIndicator()
-                : SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _creerCompte,
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
-                      child: const Text("Créer mon compte", style: TextStyle(color: Colors.white, fontSize: 16)),
+              _isLoading
+                  ? const CircularProgressIndicator()
+                  : SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _creerCompte,
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepOrange),
+                        child: const Text("Créer mon compte",
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 16)),
+                      ),
                     ),
-                  ),
               const SizedBox(height: 30),
               const DeveloperContactButton(),
             ],

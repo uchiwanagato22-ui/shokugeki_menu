@@ -129,14 +129,14 @@ class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
                             children: [
                               // En-tête de la carte de livraison
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.between,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     "Client : ${commande['client_nom']}",
                                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                   ),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, py: 4),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: Colors.amber.shade100,
                                       borderRadius: BorderRadius.circular(20),
@@ -156,7 +156,7 @@ class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
                               const SizedBox(height: 8),
                               
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.between,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text("💰 Somme à encaisser :", style: TextStyle(color: Colors.grey.shade600)),
                                   Text(

@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-// --- IMPORTS REELS ET CORRIGÉS ---
+// --- IMPORTS RÉELS ET VÉRIFIÉS ---
 import 'directeur_dashboard_screen.dart'; 
 import 'caissier_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
 import 'restaurant_workflows.dart'; 
-import 'default_menu_plats.dart'; // Importation de tes plats par défaut
+import 'default_menu_plats.dart'; 
+import 'notification_service.dart'; // Importation de ton service de notification
 
 const Color kPrimaryColor = Color(0xFF2196F3); 
 const Color kBackgroundColor = Color(0xFF090A0F);
@@ -16,6 +18,14 @@ const Color kSurfaceColor = Color(0xFF14161D);
 const Color kAccentColor = Color(0xFFFFD700);
 const String kAppName = "Shokugeki Menu";
 const String kDeveloperPhone = "+22232652300";
+
+// --- GESTIONNAIRE DES NOTIFICATIONS EN ARRIÈRE-PLAN (BACKGROUND / TERMINATED) ---
+// Cette fonction doit obligatoirement être globale (hors de toute classe) et annotée ainsi.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // S'exécute lorsque l'application est fermée ou en arrière-plan
+  print("Notification reçue en arrière-plan : ${message.notification?.title}");
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,14 +35,20 @@ void main() async {
 class ShokugekiMenuApp extends StatelessWidget {
   const ShokugekiMenuApp({super.key});
 
-  // Initialisation de Firebase + Injection Automatique si vide
-  Future<FirebaseApp> _initFirebaseEtVerifierMenu() async {
+  // Initialisation complète : Firebase + FCM + Injection de données si vide
+  Future<FirebaseApp> _initialiserConfigurationComplete() async {
     FirebaseApp app = await Firebase.initializeApp().timeout(
       const Duration(seconds: 8),
       onTimeout: () => throw Exception("Firebase ne répond pas."),
     );
 
-    // Vérification et remplissage automatique de la base au premier démarrage
+    // 1. Liaison du gestionnaire pour les messages en arrière-plan
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    // 2. Initialisation de ton service local de notifications
+    await NotificationService.instance.init();
+
+    // 3. Vérification et remplissage automatique de la collection menu au premier démarrage
     final menuSnapshot = await FirebaseFirestore.instance.collection('menu').limit(1).get();
     if (menuSnapshot.docs.isEmpty) {
       for (var plat in kPlatsExempleMauritanie) {
@@ -47,6 +63,7 @@ class ShokugekiMenuApp extends StatelessWidget {
         });
       }
     }
+    
     return app;
   }
 
@@ -64,7 +81,7 @@ class ShokugekiMenuApp extends StatelessWidget {
         ),
       ),
       home: FutureBuilder(
-        future: _initFirebaseEtVerifierMenu(),
+        future: _initialiserConfigurationComplete(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && !snapshot.hasError) {
             return const LoginScreen();
@@ -247,8 +264,6 @@ class MenuClientPage extends StatefulWidget {
 
 class _MenuClientPageState extends State<MenuClientPage> {
   String _selectedCategory = "Tout";
-  
-  // Correction : Liste complète synchronisée avec kPlatsExempleMauritanie
   final List<String> _categories = ["Tout", "Burgers", "Pizzas", "Poulet", "Divers", "Desserts", "Boissons"];
 
   @override
@@ -306,7 +321,6 @@ class _MenuClientPageState extends State<MenuClientPage> {
                   itemBuilder: (context, index) {
                     final item = docs[index].data() as Map<String, dynamic>;
                     
-                    // Extraction dynamique des données de Firestore
                     String nomPlat = item['nom'] ?? 'Plat';
                     String descPlat = item['description'] ?? '';
                     String imgPlat = item['image'] ?? 'https://via.placeholder.com/150';
@@ -330,7 +344,6 @@ class _MenuClientPageState extends State<MenuClientPage> {
                         ),
                         title: Text(nomPlat, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                         subtitle: Text(descPlat, style: const TextStyle(color: Colors.white54), maxLines: 2, overflow: TextOverflow.ellipsis),
-                        // CORRECTION DYNAMIQUE : On affiche le vrai prix du document Firestore
                         trailing: Text(
                           "$prixPlat MRU", 
                           style: const TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold, fontSize: 16)

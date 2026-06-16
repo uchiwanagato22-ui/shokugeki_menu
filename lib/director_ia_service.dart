@@ -1,8 +1,9 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
-import '../api_keys.example.dart'; // Assure-toi de pointer vers ton fichier de clés final
+// Correction de l'import pour pointer directement au bon endroit si ton fichier de clés est à la racine de lib/
+import 'api_keys.example.dart'; 
 
 class DirectorIAService {
-  // Initialisation du modèle Gemini Pro
+  // Initialisation du modèle Gemini 1.5 Flash
   final GenerativeModel _model = GenerativeModel(
     model: 'gemini-1.5-flash', // Modèle ultra-rapide et économique pour l'analyse de données
     apiKey: geminiApiKey,
@@ -31,9 +32,9 @@ class DirectorIAService {
 
     try {
       final response = await _model.generateContent([Content.text(prompt)]);
-      return response.text ?? "Impossible de générer l'analyse pour le moment.";
+      return response.text ?? "Impossible de générer le rapport pour le moment.";
     } catch (e) {
-      return "Erreur lors de l'analyse IA : ${e.toString()}";
+      return "Erreur lors de l'analyse IA : $e";
     }
   }
 }

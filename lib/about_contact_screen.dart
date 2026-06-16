@@ -36,19 +36,27 @@ class AboutContactScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text(
                   brand.nom,
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
                 ),
                 Text(
                   brand.slogan,
-                  style: TextStyle(fontSize: 14, color: kPrimaryColor.withOpacity(0.8), fontStyle: FontStyle.italic),
-                  textAlign: Center,
+                  style: TextStyle(
+                      fontSize: 14,
+                      color: kPrimaryColor.withOpacity(0.8),
+                      fontStyle: FontStyle.italic),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
 
                 // --- INFOS DU RESTAURANT ---
-                _infoCard(Icons.access_time, "Horaires d'ouverture", brand.horaires),
+                _infoCard(
+                    Icons.access_time, "Horaires d'ouverture", brand.horaires),
                 const SizedBox(height: 12),
-                _infoCard(Icons.location_on_outlined, "Notre Adresse", brand.adresse),
+                _infoCard(
+                    Icons.location_on_outlined, "Notre Adresse", brand.adresse),
                 const SizedBox(height: 24),
 
                 // --- BOUTONS D'ACTION RESTAURANT ---
@@ -65,9 +73,10 @@ class AboutContactScreen extends StatelessWidget {
                   label: "WhatsApp du Restaurant",
                   subtitle: "Passer commande en direct",
                   color: const Color(0xFF25D366),
-                  onTap: () => _ouvrirUrl(Uri.parse(_whatsappUri(brand.whatsapp))),
+                  onTap: () =>
+                      _ouvrirUrl(Uri.parse(_whatsappUri(brand.whatsapp))),
                 ),
-                
+
                 const SizedBox(height: 40),
                 const Divider(color: Colors.white10),
                 const SizedBox(height: 20),
@@ -91,7 +100,10 @@ class AboutContactScreen extends StatelessWidget {
                           SizedBox(width: 8),
                           Text(
                             "Propulsé par Uchiwa Nagato",
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                fontSize: 14),
                           ),
                         ],
                       ),
@@ -110,11 +122,13 @@ class AboutContactScreen extends StatelessWidget {
                         icon: const Icon(Icons.bolt, color: Colors.black),
                         label: const Text(
                           "Commander mon Application",
-                          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              color: Colors.black, fontWeight: FontWeight.bold),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: kPrimaryColor,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           minimumSize: const Size(double.infinity, 45),
                         ),
                       ),
@@ -134,7 +148,8 @@ class AboutContactScreen extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: kSurfaceColor, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+          color: kSurfaceColor, borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: [
           Icon(icon, color: kPrimaryColor, size: 22),
@@ -143,9 +158,14 @@ class AboutContactScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(titre, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(titre,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 const SizedBox(height: 4),
-                Text(valeur, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 14)),
+                Text(valeur,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14)),
               ],
             ),
           )
@@ -171,14 +191,22 @@ class AboutContactScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              CircleAvatar(backgroundColor: color.withOpacity(0.15), child: Icon(icon, color: color)),
+              CircleAvatar(
+                  backgroundColor: color.withOpacity(0.15),
+                  child: Icon(icon, color: color)),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white)),
-                    Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                    Text(label,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Colors.white)),
+                    Text(subtitle,
+                        style:
+                            const TextStyle(color: Colors.grey, fontSize: 13)),
                   ],
                 ),
               ),

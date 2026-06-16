@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import '../services/director_ia_service.dart';
+import 'director_ia_service.dart';
 import '../widgets/developer_contact_button.dart';
 
 class DirectorDashboardScreen extends StatefulWidget {
@@ -240,7 +240,7 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
                           
                           // Sélecteur d'image avec aperçu
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.between,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               ElevatedButton.icon(
                                 onPressed: _choisirImage,
