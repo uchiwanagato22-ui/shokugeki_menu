@@ -21,9 +21,8 @@ class NotificationService {
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
 
-    await _local.initialize(
-      initializationSettings,
-    );
+    // CORRECTION SYNTAXE 1 : L'objet de configuration est passé directement (argument positionnel)
+    await _local.initialize(initializationSettings);
 
     await _local
         .resolvePlatformSpecificImplementation<
@@ -41,10 +40,9 @@ class NotificationService {
     try {
       final token = await _fcm.getToken();
       if (token != null) {
-        await FirebaseFirestore.instance
-            .collection('utilisateurs')
-            .doc(uid)
-            .set({'fcm_token': token}, SetOptions(merge: true));
+        await FirebaseFirestore.instance.collection('utilisateurs').doc(uid).set(
+            {'fcm_token': token},
+            SetOptions(merge: true)); // Évite le crash si le document n'existe pas
       }
     } catch (e) {
       print("Erreur token FCM : $e");
@@ -56,17 +54,19 @@ class NotificationService {
     if (uid == null || _watchedUid == uid) return;
 
     _watchedUid = uid;
-    
+
+    // On suit uniquement les commandes appartenant à cet ID utilisateur précis
     FirebaseFirestore.instance
         .collection('commandes')
-        .where('userId', isEqualTo: uid) 
+        .where('userId', isEqualTo: uid)
         .snapshots()
         .listen((snapshot) {
       for (var doc in snapshot.docChanges) {
         if (doc.type == DocumentChangeType.modified) {
           final data = doc.doc.data() as Map<String, dynamic>;
           final statut = data['statut'] ?? '';
-          final cmdId = doc.doc.id.length > 5 ? doc.doc.id.substring(0, 5) : doc.doc.id;
+          final cmdId =
+              doc.doc.id.length > 5 ? doc.doc.id.substring(0, 5) : doc.doc.id;
 
           final message = _messagePourStatut(statut, cmdId);
           if (message != null) {
@@ -112,7 +112,8 @@ class NotificationService {
     }
   }
 
-  Future<void> _afficher({required int id, required String titre, required String corps}) async {
+  Future<void> _afficher(
+      {required int id, required String titre, required String corps}) async {
     const androidDetails = AndroidNotificationDetails(
       'commandes_channel',
       'Suivi des commandes',
@@ -124,12 +125,11 @@ class NotificationService {
 
     const notificationDetails = NotificationDetails(android: androidDetails);
 
-    // CORRECTION SYNTAXE : id, titre, et corps sont passés en arguments positionnels (sans étiquettes)
-    // Seul le paramètre de configuration finale prend un argument nommé.
+    // CORRECTION SYNTAXE 2 : Tous les paramètres de la version 22.0.0 doivent être explicitement nommés
     await _local.show(
-      id,
-      titre,
-      corps,
+      id: id,
+      title: titre,
+      body: corps,
       notificationDetails: notificationDetails,
     );
   }

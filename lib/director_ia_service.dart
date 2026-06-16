@@ -1,11 +1,12 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
-// Correction de l'import pour pointer directement au bon endroit si ton fichier de clés est à la racine de lib/
-import 'api_keys.example.dart'; 
+
+// Codemagic injectera directement ta clé ici lors du build grâce à cette ligne
+const String geminiApiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: ''); 
 
 class DirectorIAService {
   // Initialisation du modèle Gemini 1.5 Flash
   final GenerativeModel _model = GenerativeModel(
-    model: 'gemini-1.5-flash', // Modèle ultra-rapide et économique pour l'analyse de données
+    model: 'gemini-1.5-flash',
     apiKey: geminiApiKey,
   );
 
@@ -31,6 +32,9 @@ class DirectorIAService {
     """;
 
     try {
+      if (geminiApiKey.isEmpty) {
+        return "Clé API Gemini introuvable. Vérifiez les variables d'environnement.";
+      }
       final response = await _model.generateContent([Content.text(prompt)]);
       return response.text ?? "Impossible de générer le rapport pour le moment.";
     } catch (e) {
