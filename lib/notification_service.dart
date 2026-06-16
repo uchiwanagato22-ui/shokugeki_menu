@@ -20,11 +20,9 @@ class NotificationService {
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
 
-    // MÉTHODE UNIVERSELLE : On passe l'objet directement sans étiquette, 
-    // et on gère les callbacks obligatoires selon les versions pour bloquer l'erreur.
+    // Version stable et standard : pas de paramètre nommé ici pour l'initialisation de base
     await _local.initialize(
       initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {},
     );
 
     await _local
@@ -127,10 +125,13 @@ class NotificationService {
 
     const notificationDetails = NotificationDetails(android: androidDetails);
 
+    // LA VRAIE CORRECTION FIXE ICI : 
+    // Les 3 premiers paramètres doivent être transmis SANS étiquette (arguments positionnels),
+    // et seul le dernier paramètre est nommé. C'est l'exigence absolue du compilateur.
     await _local.show(
-      id: id,
-      title: titre,
-      body: corps,
+      id,
+      titre,
+      corps,
       notificationDetails: notificationDetails,
     );
   }
