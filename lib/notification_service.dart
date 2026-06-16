@@ -16,14 +16,15 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
 
-    // Utilisation d'une icône générique sécurisée si launcher_icon échoue
     const initializationSettings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
 
-    // CORRECTION SYNTAXE : Ajout explicite du paramètre nommé requis par le compilateur
+    // MÉTHODE UNIVERSELLE : On passe l'objet directement sans étiquette, 
+    // et on gère les callbacks obligatoires selon les versions pour bloquer l'erreur.
     await _local.initialize(
-      initializationSettings: initializationSettings,
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {},
     );
 
     await _local
