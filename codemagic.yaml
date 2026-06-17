@@ -3,45 +3,63 @@ workflows:
     name: Shokugeki Menu Android Build
     max_build_duration: 60
     instance_type: mac_mini_m1
+
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
+
+      groups:
+        - gemini_keys
+
       vars:
         GEMINI_MODEL: gemini-2.5-flash
 
     triggering:
       events:
         - push
+
       branch_patterns:
         - pattern: 'main'
 
     scripts:
+
       - name: Set up local.properties
         script: |
           echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
+
+
       - name: Get Flutter packages
         script: |
           flutter pub get
+
+
       - name: Check Gemini key
         script: |
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "GEMINI_API_KEY is missing in Codemagic environment variables"
             exit 1
           fi
+
+          echo "Gemini key detected"
+
+
       - name: Build Android APK
         script: |
           flutter build apk --release \
             --dart-define=GEMINI_API_KEY="$GEMINI_API_KEY" \
             --dart-define=GEMINI_MODEL="$GEMINI_MODEL"
 
+
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk
+
 
     publishing:
       email:
         recipients:
           - uchiwanagato22@gmail.com
+
         notify:
           success: true
           failure: true
