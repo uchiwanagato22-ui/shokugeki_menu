@@ -2,13 +2,19 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 
 class GeminiService {
   static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static const String _modelName = String.fromEnvironment(
+    'GEMINI_MODEL',
+    defaultValue: 'gemini-2.5-flash',
+  );
+
   static bool get isConfigured => _apiKey.isNotEmpty;
+  static String get modelName => _modelName;
 
   final GenerativeModel _model;
 
   GeminiService()
       : _model = GenerativeModel(
-          model: 'gemini-1.5-flash',
+          model: _modelName,
           apiKey: _apiKey,
         );
 
@@ -25,7 +31,7 @@ class GeminiService {
       }
       return text.trim();
     } catch (e) {
-      return "Désolé, j'ai rencontré une petite erreur technique. Réessaie !";
+      return "Chef IA indisponible pour le moment. Verifiez la cle Gemini et le modele $_modelName.";
     }
   }
 }

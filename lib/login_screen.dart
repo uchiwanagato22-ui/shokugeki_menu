@@ -4,6 +4,9 @@ import 'caissier_dashboard_screen.dart';
 import 'cuisine_screen.dart';
 import 'directeur_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
+import 'restaurant_app_config.dart';
+import 'staff_access_service.dart';
+import 'subscription_guard.dart';
 import '../widgets/developer_contact_button.dart';
 import 'register_screen.dart';
 
@@ -90,42 +93,49 @@ class _LoginScreenState extends State<LoginScreen>
     if (_codeController.text.trim().isEmpty) return;
     setState(() => _isLoading = true);
 
-    // 1. On interroge Firestore avec le code tapé
-    String? role =
-        await _authService.connecterPersonnel(_codeController.text.trim());
+    final result = await StaffAccessService().verifyCode(
+      restaurantId: defaultRestaurantId,
+      code: _codeController.text.trim(),
+    );
+
     setState(() => _isLoading = false);
 
-    if (role != null) {
+    final role = result.role;
+    if (result.allowed && role != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Accès autorisé : ${role.toUpperCase()}")),
+        SnackBar(content: Text("Accès autorisé : ${role.label}")),
       );
 
-      // 2. Redirection vers le bon écran selon le rôle trouvé dans ta base
-      if (role == 'caissier') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const CaissierDashboardScreen()),
-        );
-      } else if (role == 'livreur') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LivreurDashboardScreen()),
-        );
-      } else if (role == 'cuisine') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const CuisineScreen()),
-        );
-      } else if (role == 'directeur') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const DirectorDashboardScreen()),
-        );
+      Widget cible;
+      switch (role) {
+        case StaffRole.caissier:
+          cible = const CaissierDashboardScreen();
+          break;
+        case StaffRole.livreur:
+          cible = const LivreurDashboardScreen();
+          break;
+        case StaffRole.cuisine:
+          cible = const CuisineScreen();
+          break;
+        case StaffRole.directeur:
+          cible = const DirectorDashboardScreen();
+          break;
       }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SubscriptionGuard(
+            restaurantId: defaultRestaurantId,
+            child: cible,
+          ),
+        ),
+      );
     } else {
-      // Si le code n'existe dans aucun document
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Code secret incorrect ou introuvable.")),
+        SnackBar(
+          content: Text(result.errorMessage ?? "Code secret incorrect."),
+        ),
       );
     }
   }
@@ -234,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen>
                             keyboardType: TextInputType.number,
                             obscureText: true,
                             textAlign: TextAlign.center,
-                            maxLength: 6,
+                            maxLength: 4,
                           ),
                           const SizedBox(height: 20),
                           _isLoading

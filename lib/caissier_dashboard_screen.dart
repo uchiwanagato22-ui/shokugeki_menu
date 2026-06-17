@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../widgets/developer_contact_button.dart';
+import 'package:flutter/material.dart';
+
+import 'premium_staff_widgets.dart';
+import 'widgets/developer_contact_button.dart';
 
 class CaissierDashboardScreen extends StatefulWidget {
-  const CaissierDashboardScreen({Key? key}) : super(key: key);
+  const CaissierDashboardScreen({super.key});
 
   @override
   State<CaissierDashboardScreen> createState() => _CaissierDashboardScreenState();
@@ -12,143 +14,210 @@ class CaissierDashboardScreen extends StatefulWidget {
 class _CaissierDashboardScreenState extends State<CaissierDashboardScreen> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Mettre à jour le statut d'une commande
   Future<void> _modifierStatut(String docId, String nouveauStatut) async {
-    try {
-      await _db.collection('commandes').doc(docId).update({
-        'statut': nouveauStatut,
-        'date_validation_caissier': FieldValue.serverTimestamp(),
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Commande mise à jour : $nouveauStatut")),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erreur de mise à jour : ${e.toString()}")),
-      );
-    }
+    await _db.collection('commandes').doc(docId).update({
+      'statut': nouveauStatut,
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Commande mise a jour : $nouveauStatut')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Espace Caisse & Validation"),
-        backgroundColor: Colors.blueGrey.shade900,
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => setState(() {}),
-          )
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            const Text(
-              "Commandes en attente de validation",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            
-            // Flux en temps réel des commandes dont le statut est 'en_attente'
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _db.collection('commandes')
-                    .where('statut', isEqualTo: 'en_attente')
-                    .orderBy('date_commande', descending: true)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(child: Text("Erreur de chargement : ${snapshot.error}"));
-                  }
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.data!.docs.isEmpty) {
-                    return const Center(
-                      child: Text("Aucune nouvelle commande pour le moment. ☕"),
-                    );
-                  }
-
-                  return ListView.builder(
-                    itemCount: snapshot.data!.docs.length,
-                    itemBuilder: (context, index) {
-                      var doc = snapshot.data!.docs[index];
-                      Map<String, dynamic> commande = doc.data() as Map<String, dynamic>;
-                      List articles = commande['articles'] ?? [];
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        elevation: 4,
-                        child: ExpansionTile(
-                          title: Text(
-                            "${commande['client_nom']} - ${commande['total']} MRU",
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text("Quartier : ${commande['quartier']} | Tél : ${commande['client_telephone']}"),
-                          trailing: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: commande['mode_paiement'] == 'A la livraison' ? Colors.orange.shade100 : Colors.green.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              commande['mode_paiement'],
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text("Détails des plats :", style: TextStyle(fontWeight: FontWeight.bold)),
-                                  const Divider(),
-                                  ...articles.map((item) => Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 2.0),
-                                    child: Text("• ${item['nom']} (x${item['quantite']})"),
-                                  )).toList(),
-                                  const SizedBox(height: 10),
-                                  Text("📍 Repères : ${commande['reperes_adresse']}"),
-                                  const SizedBox(height: 15),
-                                  
-                                  // Boutons d'action pour le caissier
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      ElevatedButton.icon(
-                                        onPressed: () => _modifierStatut(doc.id, 'rejete'),
-                                        icon: const Icon(Icons.cancel, color: Colors.white),
-                                        label: const Text("Rejeter", style: TextStyle(color: Colors.white)),
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                      ),
-                                      ElevatedButton.icon(
-                                        onPressed: () => _modifierStatut(doc.id, 'en_cuisine'),
-                                        icon: const Icon(Icons.soup_kitchen, color: Colors.white),
-                                        label: const Text("Envoyer Cuisine", style: TextStyle(color: Colors.white)),
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                      ),
-                                    ],
-                                  )
-                                ],
-                              ),
-                            )
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            const DeveloperContactButton(),
-            const SizedBox(height: 10),
-          ],
+    return StaffScaffold(
+      title: 'Caisse',
+      subtitle: 'Validez les commandes client, controlez les paiements et envoyez en cuisine.',
+      icon: Icons.point_of_sale,
+      palette: StaffPalette.cashier,
+      actions: [
+        IconButton(
+          tooltip: 'Actualiser',
+          onPressed: () => setState(() {}),
+          icon: const Icon(Icons.refresh),
         ),
+      ],
+      children: [
+        StreamBuilder<QuerySnapshot>(
+          stream: _db
+              .collection('commandes')
+              .where('statut', isEqualTo: 'en_attente')
+              .orderBy('date_commande', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return EmptyStaffState(
+                icon: Icons.warning_amber,
+                title: 'Erreur de chargement',
+                message: snapshot.error.toString(),
+              );
+            }
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final docs = snapshot.data!.docs;
+            if (docs.isEmpty) {
+              return const EmptyStaffState(
+                icon: Icons.receipt_long,
+                title: 'Aucune commande en attente',
+                message: 'La caisse est calme. Les nouvelles commandes arriveront ici.',
+              );
+            }
+
+            final total = docs.fold<double>(0, (sum, doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return sum + readMoney(data['total']);
+            });
+
+            return Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: StaffMetricCard(
+                        label: 'A valider',
+                        value: docs.length.toString(),
+                        icon: Icons.pending_actions,
+                        palette: StaffPalette.cashier,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StaffMetricCard(
+                        label: 'Valeur',
+                        value: '${total.toStringAsFixed(0)} MRU',
+                        icon: Icons.payments,
+                        palette: StaffPalette.cashier,
+                      ),
+                    ),
+                  ],
+                ),
+                StaffSectionTitle(
+                  title: 'Commandes en attente',
+                  trailing: '${docs.length} ticket(s)',
+                ),
+                ...docs.map((doc) {
+                  final commande = doc.data() as Map<String, dynamic>;
+                  return _CashierOrderCard(
+                    commande: commande,
+                    onReject: () => _modifierStatut(doc.id, 'rejete'),
+                    onSendKitchen: () => _modifierStatut(doc.id, 'en_cuisine'),
+                  );
+                }),
+                const SizedBox(height: 12),
+                const DeveloperContactButton(),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _CashierOrderCard extends StatelessWidget {
+  const _CashierOrderCard({
+    required this.commande,
+    required this.onReject,
+    required this.onSendKitchen,
+  });
+
+  final Map<String, dynamic> commande;
+  final VoidCallback onReject;
+  final VoidCallback onSendKitchen;
+
+  @override
+  Widget build(BuildContext context) {
+    final articles = readArticles(commande);
+    final total = readMoney(commande['total']);
+    final paiement = readText(commande, 'mode_paiement', 'Paiement non precise');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  readText(commande, 'client_nom', 'Client'),
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: paiement.toLowerCase().contains('livraison')
+                      ? const Color(0xFFFFF7ED)
+                      : const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  paiement,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${readText(commande, 'quartier', 'Quartier non precise')} - ${readText(commande, 'client_telephone', 'Telephone absent')}',
+            style: const TextStyle(color: Color(0xFF475569), fontWeight: FontWeight.w600),
+          ),
+          if (readText(commande, 'reperes_adresse').isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              readText(commande, 'reperes_adresse'),
+              style: const TextStyle(color: Color(0xFF64748B)),
+            ),
+          ],
+          const Divider(height: 22),
+          ...articles.map((article) {
+            final item = article is Map ? article : <String, dynamic>{};
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: Row(
+                children: [
+                  Expanded(child: Text(item['nom']?.toString() ?? 'Plat')),
+                  Text('x${item['quantite'] ?? 1}'),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${total.toStringAsFixed(0)} MRU',
+                  style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: onReject,
+                icon: const Icon(Icons.close),
+                label: const Text('Rejeter'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: onSendKitchen,
+                icon: const Icon(Icons.soup_kitchen),
+                label: const Text('Cuisine'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

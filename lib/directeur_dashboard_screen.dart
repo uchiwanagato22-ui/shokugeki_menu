@@ -1,13 +1,17 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
 import 'director_ia_service.dart';
-import '../widgets/developer_contact_button.dart';
+import 'premium_staff_widgets.dart';
+import 'restaurant_setup_seed.dart';
+import 'widgets/developer_contact_button.dart';
 
 class DirectorDashboardScreen extends StatefulWidget {
-  const DirectorDashboardScreen({Key? key}) : super(key: key);
+  const DirectorDashboardScreen({super.key});
 
   @override
   State<DirectorDashboardScreen> createState() => _DirectorDashboardScreenState();
@@ -18,317 +22,585 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final DirectorIAService _iaService = DirectorIAService();
 
-  // Variables IA
-  String _rapportIA = "Cliquez sur 'Lancer l'Analyse IA' pour obtenir le rapport de vos performances.";
-  bool _isAnalysing = false;
-
-  // Formulaire d'ajout de plat
   final _nomPlatController = TextEditingController();
   final _prixPlatController = TextEditingController();
-  File? _imageSelectionnee;
-  bool _isUploading = false;
+  final _categorieController = TextEditingController();
 
-  // Sélectionner une image depuis la galerie du téléphone
+  String _rapportIA =
+      "Lancez l'analyse IA pour obtenir un rapport simple sur les ventes, les plats forts et les actions a faire.";
+  bool _isAnalysing = false;
+  bool _isUploading = false;
+  bool _isSeeding = false;
+  File? _imageSelectionnee;
+
+  @override
+  void dispose() {
+    _nomPlatController.dispose();
+    _prixPlatController.dispose();
+    _categorieController.dispose();
+    super.dispose();
+  }
+
   Future<void> _choisirImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-    
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 72);
     if (image != null) {
-      setState(() {
-        _imageSelectionnee = File(image.path);
-      });
+      setState(() => _imageSelectionnee = File(image.path));
     }
   }
 
-  // Ajouter un plat dans Firestore avec Image de couverture
+  Future<void> _installerBaseFirebase() async {
+    setState(() => _isSeeding = true);
+    try {
+      await RestaurantSetupSeed().createDefaultRestaurant();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Configuration restaurant installee.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur configuration : $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSeeding = false);
+    }
+  }
+
   Future<void> _ajouterNouveauPlat() async {
-    if (_nomPlatController.text.isEmpty || _prixPlatController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Veuillez remplir le nom et le prix.")));
+    final nom = _nomPlatController.text.trim();
+    final prix = double.tryParse(_prixPlatController.text.trim().replaceAll(',', '.'));
+    final categorie = _categorieController.text.trim();
+
+    if (nom.isEmpty || prix == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ajoutez un nom et un prix valide.')),
+      );
       return;
     }
 
     setState(() => _isUploading = true);
-    String imageUrl = "";
+    String imageUrl = 'https://via.placeholder.com/400x300.png?text=Plat';
 
     try {
-      // 1. Upload de l'image sur Firebase Storage si une image est sélectionnée
       if (_imageSelectionnee != null) {
-        String nomFichier = "plats/${DateTime.now().millisecondsSinceEpoch}.jpg";
-        TaskSnapshot uploadTask = await _storage.ref().child(nomFichier).putFile(_imageSelectionnee!);
+        final fileName = 'plats/${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final uploadTask = await _storage.ref().child(fileName).putFile(_imageSelectionnee!);
         imageUrl = await uploadTask.ref.getDownloadURL();
       }
 
-      // 2. Insertion du plat dans la collection 'menu'
       await _db.collection('menu').add({
-        'nom': _nomPlatController.text.trim(),
-        'prix': double.parse(_prixPlatController.text.trim()),
-        'image': imageUrl.isNotEmpty ? imageUrl : "https://via.placeholder.com/150",
+        'nom': nom,
+        'prix': prix,
+        'categorie': categorie.isEmpty ? 'Specialites' : categorie,
+        'image': imageUrl,
         'disponible': true,
+        'populaire': false,
+        'nouveau': true,
+        'description': '',
         'date_creation': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
       });
 
-      // Nettoyage du formulaire
       _nomPlatController.clear();
       _prixPlatController.clear();
+      _categorieController.clear();
       setState(() => _imageSelectionnee = null);
 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Nouveau plat ajouté au menu ! 🍳")));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nouveau plat ajoute au menu.')),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur d'ajout : ${e.toString()}")));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur ajout plat : $e')),
+      );
     } finally {
-      setState(() => _isUploading = false);
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
-  // Supprimer définitivement un plat du menu
   Future<void> _supprimerPlat(String docId) async {
-    try {
-      await _db.collection('menu').doc(docId).delete();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Plat supprimé définitivement.")));
-    } catch (e) {
-      print(e);
-    }
+    await _db.collection('menu').doc(docId).delete();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Plat supprime.')),
+    );
   }
 
-  // Modifier la disponibilité d'un plat (Le retirer temporairement sans le supprimer)
   Future<void> _changerDisponibilite(String docId, bool statutActuel) async {
-    await _db.collection('menu').doc(docId).update({'disponible': !statutActuel});
+    await _db.collection('menu').doc(docId).update({
+      'disponible': !statutActuel,
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> _changerBadge(String docId, String champ, bool valeurActuelle) async {
+    await _db.collection('menu').doc(docId).update({
+      champ: !valeurActuelle,
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> _lancerAnalyseIA({
+    required double chiffreAffaires,
+    required int totalCommandes,
+    required List<String> platsVendus,
+  }) async {
+    setState(() => _isAnalysing = true);
+    final rapport = await _iaService.genererRapportStrategique(
+      chiffreAffaires: chiffreAffaires,
+      totalCommandes: totalCommandes,
+      listePlatsVendus: platsVendus,
+    );
+    if (!mounted) return;
+    setState(() {
+      _rapportIA = rapport;
+      _isAnalysing = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Directeur & Pilotage IA"),
-        backgroundColor: Colors.purple.shade900,
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: StreamBuilder<QuerySnapshot>(
+    return StaffScaffold(
+      title: 'Directeur',
+      subtitle: 'Pilotage restaurant, menu, ventes, IA et configuration abonnement.',
+      icon: Icons.dashboard_customize,
+      palette: StaffPalette.director,
+      actions: [
+        IconButton(
+          tooltip: 'Installer config',
+          onPressed: _isSeeding ? null : _installerBaseFirebase,
+          icon: _isSeeding
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.cloud_done),
+        ),
+      ],
+      children: [
+        StreamBuilder<QuerySnapshot>(
           stream: _db.collection('commandes').where('statut', isEqualTo: 'livre').snapshots(),
           builder: (context, snapshot) {
-            double chiffreAffaires = 0.0;
+            double chiffreAffaires = 0;
             int totalCommandes = 0;
-            List<String> platsVendus = [];
+            final platsVendus = <String>[];
 
-            if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+            if (snapshot.hasData) {
               totalCommandes = snapshot.data!.docs.length;
-              for (var doc in snapshot.data!.docs) {
-                var data = doc.data() as Map<String, dynamic>;
-                chiffreAffaires += (data['total'] ?? 0.0);
-                
-                List articles = data['articles'] ?? [];
-                for (var art in articles) {
-                  platsVendus.add(art['nom'].toString());
+              for (final doc in snapshot.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                chiffreAffaires += readMoney(data['total']);
+                for (final article in readArticles(data)) {
+                  if (article is Map && article['nom'] != null) {
+                    platsVendus.add(article['nom'].toString());
+                  }
                 }
               }
             }
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 📊 SECTION 1 : TABLEAU DE BORD FINANCIER REEL
-                  const Text("📊 Performances Financières (Réel)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Card(
-                          color: Colors.green.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                const Text("Chiffre d'Affaires", style: TextStyle(fontSize: 13, color: Colors.grey)),
-                                const SizedBox(height: 5),
-                                Text("$chiffreAffaires MRU", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-                              ],
-                            ),
-                          ),
-                        ),
+            return Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: StaffMetricCard(
+                        label: 'Chiffre livre',
+                        value: '${chiffreAffaires.toStringAsFixed(0)} MRU',
+                        icon: Icons.trending_up,
+                        palette: StaffPalette.director,
                       ),
-                      Expanded(
-                        child: Card(
-                          color: Colors.blue.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                const Text("Commandes Livrées", style: TextStyle(fontSize: 13, color: Colors.grey)),
-                                const SizedBox(height: 5),
-                                Text("$totalCommandes", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
-                              ],
-                            ),
-                          ),
-                        ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StaffMetricCard(
+                        label: 'Commandes',
+                        value: totalCommandes.toString(),
+                        icon: Icons.receipt_long,
+                        palette: StaffPalette.director,
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _DirectorIaPanel(
+                  rapport: _rapportIA,
+                  loading: _isAnalysing,
+                  onAnalyze: () => _lancerAnalyseIA(
+                    chiffreAffaires: chiffreAffaires,
+                    totalCommandes: totalCommandes,
+                    platsVendus: platsVendus,
                   ),
-                  
-                  const SizedBox(height: 15),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        _MenuCreationPanel(
+          nomController: _nomPlatController,
+          prixController: _prixPlatController,
+          categorieController: _categorieController,
+          imageSelectionnee: _imageSelectionnee,
+          loading: _isUploading,
+          onPickImage: _choisirImage,
+          onSave: _ajouterNouveauPlat,
+        ),
+        const SizedBox(height: 12),
+        _MenuManagementPanel(
+          db: _db,
+          onAvailability: _changerDisponibilite,
+          onBadge: _changerBadge,
+          onDelete: _supprimerPlat,
+        ),
+        const SizedBox(height: 12),
+        const DeveloperContactButton(),
+      ],
+    );
+  }
+}
 
-                  // 🤖 SECTION 2 : ZONE CONSULTANT DIRECTEUR IA (GEMINI)
-                  Card(
-                    color: Colors.purple.shade50,
-                    shape: RoundedRectangleBorder(side: BorderSide(color: Colors.purple.shade200), borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+class _DirectorIaPanel extends StatelessWidget {
+  const _DirectorIaPanel({
+    required this.rapport,
+    required this.loading,
+    required this.onAnalyze,
+  });
+
+  final String rapport;
+  final bool loading;
+  final VoidCallback onAnalyze;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFDDD6FE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Consultant IA du restaurant',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            rapport,
+            style: const TextStyle(color: Color(0xFF475569), height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: loading ? null : onAnalyze,
+              icon: loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.analytics),
+              label: Text(loading ? 'Analyse en cours...' : 'Lancer analyse IA'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuCreationPanel extends StatelessWidget {
+  const _MenuCreationPanel({
+    required this.nomController,
+    required this.prixController,
+    required this.categorieController,
+    required this.imageSelectionnee,
+    required this.loading,
+    required this.onPickImage,
+    required this.onSave,
+  });
+
+  final TextEditingController nomController;
+  final TextEditingController prixController;
+  final TextEditingController categorieController;
+  final File? imageSelectionnee;
+  final bool loading;
+  final VoidCallback onPickImage;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Ajouter un plat',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: nomController,
+            decoration: const InputDecoration(
+              labelText: 'Nom du plat',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: prixController,
+                  decoration: const InputDecoration(
+                    labelText: 'Prix MRU',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: categorieController,
+                  decoration: const InputDecoration(
+                    labelText: 'Categorie',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: onPickImage,
+                icon: const Icon(Icons.image),
+                label: const Text('Image'),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  imageSelectionnee == null ? 'Aucune image choisie' : 'Image prete',
+                  style: const TextStyle(color: Color(0xFF64748B)),
+                ),
+              ),
+              if (imageSelectionnee != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    imageSelectionnee!,
+                    height: 46,
+                    width: 46,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: loading ? null : onSave,
+              icon: loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save),
+              label: Text(loading ? 'Enregistrement...' : 'Enregistrer le plat'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuManagementPanel extends StatelessWidget {
+  const _MenuManagementPanel({
+    required this.db,
+    required this.onAvailability,
+    required this.onBadge,
+    required this.onDelete,
+  });
+
+  final FirebaseFirestore db;
+  final void Function(String docId, bool current) onAvailability;
+  final void Function(String docId, String field, bool current) onBadge;
+  final void Function(String docId) onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: db.collection('menu').orderBy('date_creation', descending: true).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final docs = snapshot.data!.docs;
+        if (docs.isEmpty) {
+          return const EmptyStaffState(
+            icon: Icons.menu_book,
+            title: 'Menu vide',
+            message: 'Ajoutez vos premiers plats pour commencer a vendre.',
+          );
+        }
+
+        return Column(
+          children: [
+            StaffSectionTitle(
+              title: 'Gestion du menu',
+              trailing: '${docs.length} plat(s)',
+            ),
+            ...docs.map((doc) {
+              final plat = doc.data() as Map<String, dynamic>;
+              final disponible = plat['disponible'] != false;
+              final populaire = plat['populaire'] == true;
+              final nouveau = plat['nouveau'] == true;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        readText(plat, 'image', 'https://via.placeholder.com/80'),
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 56,
+                          height: 56,
+                          color: const Color(0xFFF1F5F9),
+                          child: const Icon(Icons.fastfood),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
+                          Text(
+                            readText(plat, 'nom', 'Plat'),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              decoration:
+                                  disponible ? TextDecoration.none : TextDecoration.lineThrough,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            "${readMoney(plat['prix']).toStringAsFixed(0)} MRU - ${readText(plat, 'categorie', 'Menu')}",
+                            style: const TextStyle(color: Color(0xFF64748B)),
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
                             children: [
-                              Icon(Icons.auto_awesome, color: Colors.purple),
-                              SizedBox(width: 8),
-                              Text("Rapport Stratégique Directeur IA", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.purple)),
+                              _MiniBadge(
+                                label: disponible ? 'Disponible' : 'Retire',
+                                active: disponible,
+                              ),
+                              if (populaire) const _MiniBadge(label: 'Populaire', active: true),
+                              if (nouveau) const _MiniBadge(label: 'Nouveau', active: true),
                             ],
                           ),
-                          const Divider(),
-                          Text(_rapportIA, style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.black87)),
-                          const SizedBox(height: 15),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: _isAnalysing ? null : () async {
-                                setState(() => _isAnalysing = true);
-                                String rapport = await _iaService.genererRapportStrategique(
-                                  chiffreAffaires: chiffreAffaires,
-                                  totalCommandes: totalCommandes,
-                                  listePlatsVendus: platsVendus,
-                                );
-                                setState(() {
-                                  _rapportIA = rapport;
-                                  _isAnalysing = false;
-                                });
-                              },
-                              icon: _isAnalysing 
-                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Icon(Icons.analytics, color: Colors.white),
-                              label: Text(_isAnalysing ? "Analyse en cours..." : "Lancer l'Analyse IA", style: const TextStyle(color: Colors.white)),
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-                            ),
-                          )
                         ],
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 25),
-
-                  // ➕ SECTION 3 : AJOUT DE PLAT (WHITE-LABEL GESTION)
-                  const Text("➕ Ajouter un nouveau plat au Menu", style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Card(
-                    elevation: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          TextField(
-                            controller: _nomPlatController,
-                            decoration: const InputDecoration(labelText: "Nom du plat", border: OutlineInputBorder()),
-                          ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            controller: _prixPlatController,
-                            decoration: const InputDecoration(labelText: "Prix en MRU", border: OutlineInputBorder()),
-                            keyboardType: TextInputType.number,
-                          ),
-                          const SizedBox(height: 12),
-                          
-                          // Sélecteur d'image avec aperçu
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              ElevatedButton.icon(
-                                onPressed: _choisirImage,
-                                icon: const Icon(Icons.image),
-                                label: const Text("Upload Image"),
-                                style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade700),
-                              ),
-                              _imageSelectionnee != null
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.file(_imageSelectionnee!, height: 50, width: 50, fit: BoxFit.cover),
-                                    )
-                                  : const Text("Aucune image", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            ],
-                          ),
-                          const Divider(),
-                          _isUploading
-                              ? const CircularProgressIndicator()
-                              : SizedBox(
-                                  width: double.infinity,
-                                  height: 45,
-                                  child: ElevatedButton(
-                                    onPressed: _ajouterNouveauPlat,
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                    child: const Text("Enregistrer le plat", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                        ],
-                      ),
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'available') onAvailability(doc.id, disponible);
+                        if (value == 'popular') onBadge(doc.id, 'populaire', populaire);
+                        if (value == 'new') onBadge(doc.id, 'nouveau', nouveau);
+                        if (value == 'delete') onDelete(doc.id);
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'available',
+                          child: Text(disponible ? 'Retirer du menu' : 'Remettre au menu'),
+                        ),
+                        PopupMenuItem(
+                          value: 'popular',
+                          child: Text(populaire ? 'Retirer populaire' : 'Marquer populaire'),
+                        ),
+                        PopupMenuItem(
+                          value: 'new',
+                          child: Text(nouveau ? 'Retirer nouveau' : 'Marquer nouveau'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Supprimer'),
+                        ),
+                      ],
                     ),
-                  ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+}
 
-                  const SizedBox(height: 25),
+class _MiniBadge extends StatelessWidget {
+  const _MiniBadge({
+    required this.label,
+    required this.active,
+  });
 
-                  // 📋 SECTION 4 : RETIRER / SUPPRIMER DES PLATS EXISTANTS
-                  const Text("📋 Gestion du Menu Actuel", style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  StreamBuilder<QuerySnapshot>(
-                    stream: _db.collection('menu').orderBy('date_creation', descending: true).snapshots(),
-                    builder: (context, menuSnapshot) {
-                      if (!menuSnapshot.hasData) return const Center(child: CircularProgressIndicator());
-                      if (menuSnapshot.data!.docs.isEmpty) return const Text("Le menu est vide.");
+  final String label;
+  final bool active;
 
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: menuSnapshot.data!.docs.length,
-                        itemBuilder: (context, idx) {
-                          var document = menuSnapshot.data!.docs[idx];
-                          Map<String, dynamic> plat = document.data() as Map<String, dynamic>;
-                          bool dispo = plat['disponible'] ?? true;
-
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            child: ListTile(
-                              leading: Image.network(plat['image'], width: 40, height: 40, fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.fastfood)),
-                              title: Text(plat['nom'], style: TextStyle(decoration: dispo ? TextDecoration.none : TextDecoration.lineThrough, fontWeight: FontWeight.bold)),
-                              subtitle: Text("${plat['prix']} MRU"),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // Masquer/Retirer temporairement du menu
-                                  IconButton(
-                                    icon: Icon(dispo ? Icons.visibility : Icons.visibility_off, color: dispo ? Colors.blue : Colors.orange),
-                                    onPressed: () => _changerDisponibilite(document.id, dispo),
-                                    tooltip: dispo ? "Retirer du menu" : "Afficher sur le menu",
-                                  ),
-                                  // Supprimer définitivement
-                                  IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () => _supprimerPlat(document.id),
-                                    tooltip: "Supprimer",
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  const Center(child: DeveloperContactButton()),
-                  const SizedBox(height: 10),
-                ],
-              ),
-            );
-          },
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFFF5F3FF) : const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          color: active ? const Color(0xFF6D28D9) : const Color(0xFF64748B),
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
