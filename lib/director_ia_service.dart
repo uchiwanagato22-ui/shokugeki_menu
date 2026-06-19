@@ -42,7 +42,8 @@ class DirectorIAService {
         return "Cle API Gemini introuvable. Dans Codemagic, ajoute GEMINI_API_KEY dans Environment variables.";
       }
       final response = await _model.generateContent([Content.text(prompt)]);
-      return response.text ?? "Impossible de générer le rapport pour le moment.";
+      return response.text ??
+          "Impossible de générer le rapport pour le moment.";
     } catch (e) {
       return "Erreur IA avec le modele $geminiModel : $e";
     }
