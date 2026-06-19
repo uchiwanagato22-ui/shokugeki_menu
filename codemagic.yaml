@@ -2,7 +2,6 @@ workflows:
   android-workflow:
     name: Shokugeki Menu Android Build
     max_build_duration: 60
-    instance_type: linux # ✅ Utilise l'instance gratuite standard
 
     environment:
       flutter: 3.29.3
@@ -22,16 +21,13 @@ workflows:
           include: true
 
     scripts:
-
       - name: Flutter clean
         script: |
           flutter clean
 
-
       - name: Get packages
         script: |
           flutter pub get
-
 
       - name: Check Gemini API key
         script: |
@@ -40,26 +36,11 @@ workflows:
             exit 1
           fi
 
-          echo "Gemini API key OK"
-
-
       - name: Build APK Release
         script: |
-          flutter build apk \
-          --release \
+          flutter build apk --release \
           --dart-define=GEMINI_API_KEY=$GEMINI_API_KEY \
           --dart-define=GEMINI_MODEL=$GEMINI_MODEL
 
-
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk
-
-
-    publishing:
-      email:
-        recipients:
-          - uchiwanagato22@gmail.com
-
-        notify:
-          success: true
-          failure: true
