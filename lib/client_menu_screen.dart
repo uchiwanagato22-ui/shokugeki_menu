@@ -24,7 +24,8 @@ class ClientMenuScreen extends StatefulWidget {
 
 class _ClientMenuScreenState extends State<ClientMenuScreen> {
   String _selectedCategory = "Tout";
-  final FirestoreService _firestoreService = FirestoreService(); // Instance de ton service
+  final FirestoreService _firestoreService =
+      FirestoreService(); // Instance de ton service
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +60,8 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                   ),
                   if (widget.cartCount > 0)
                     IconButton(
-                      icon: const Icon(Icons.shopping_cart, color: kPrimaryColor),
+                      icon:
+                          const Icon(Icons.shopping_cart, color: kPrimaryColor),
                       onPressed: widget.onOpenCart,
                     ),
                 ],
@@ -104,7 +106,8 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
             // --- LISTE DES PLATS DYNAMIQUE (STREAMBUILDER) ---
             Expanded(
               child: StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _firestoreService.obtenirLeMenu(), // Ton flux de données Firebase
+                stream: _firestoreService
+                    .obtenirLeMenu(), // Ton flux de données Firebase
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return const Center(
@@ -143,7 +146,8 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                   // Grille des plats
                   return GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 14,
                       mainAxisSpacing: 14,
@@ -152,10 +156,12 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                     itemCount: platsFiltres.length,
                     itemBuilder: (context, index) {
                       final plat = platsFiltres[index];
-                      
+
                       // Vérification ultra sécurisée si l'image est une URL internet valide (Postimages, ImgBB, Unsplash...)
-                      final String imageUrl = plat['image']?.toString().trim() ?? '';
-                      final bool hasValidUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+                      final String imageUrl =
+                          plat['image']?.toString().trim() ?? '';
+                      final bool hasValidUrl = imageUrl.startsWith('http://') ||
+                          imageUrl.startsWith('https://');
 
                       return InkWell(
                         onTap: () {
@@ -165,7 +171,8 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                             plat: plat,
                             onAjouter: () {
                               // Logique d'ajout au panier existante
-                              final existingIndex = widget.cartItems.indexWhere((item) => item['id'] == plat['id']);
+                              final existingIndex = widget.cartItems.indexWhere(
+                                  (item) => item['id'] == plat['id']);
                               if (existingIndex >= 0) {
                                 widget.cartItems[existingIndex]['quantite']++;
                               } else {
@@ -184,7 +191,8 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFF1A1A22),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.white.withOpacity(0.03)),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.03)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,24 +200,29 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                               // Image du plat avec mise en cache ou Placeholder gratuit
                               Expanded(
                                 child: ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                                  borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(16)),
                                   child: hasValidUrl
                                       ? CachedNetworkImage(
                                           imageUrl: imageUrl,
                                           width: double.infinity,
                                           fit: BoxFit.cover,
-                                          placeholder: (context, url) => Container(
+                                          placeholder: (context, url) =>
+                                              Container(
                                             color: const Color(0xFF2A2A32),
                                             child: const Center(
-                                              child: CircularProgressIndicator(color: kPrimaryColor, strokeWidth: 2),
+                                              child: CircularProgressIndicator(
+                                                  color: kPrimaryColor,
+                                                  strokeWidth: 2),
                                             ),
                                           ),
-                                          errorWidget: (context, url, error) => _placeholderImage(),
+                                          errorWidget: (context, url, error) =>
+                                              _placeholderImage(),
                                         )
                                       : _placeholderImage(),
                                 ),
                               ),
-                              
+
                               // Infos du plat
                               Padding(
                                 padding: const EdgeInsets.all(10),
@@ -227,7 +240,8 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           "${plat['prix']} MRU",
@@ -236,14 +250,42 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                                               fontWeight: FontWeight.bold,
                                               fontSize: 15),
                                         ),
-                                        Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: const BoxDecoration(
-                                            color: kSecondaryColor,
-                                            shape: BoxShape.circle,
+                                        InkWell(
+                                          onTap: () {
+                                            afficherDetailPlat(
+                                              context,
+                                              plat: plat,
+                                              onAjouter: () {
+                                                final existingIndex = widget
+                                                    .cartItems
+                                                    .indexWhere((item) =>
+                                                        item['id'] ==
+                                                        plat['id']);
+                                                if (existingIndex >= 0) {
+                                                  widget.cartItems[
+                                                          existingIndex]
+                                                      ['quantite']++;
+                                                } else {
+                                                  widget.cartItems.add({
+                                                    'id': plat['id'],
+                                                    'nom': plat['nom'],
+                                                    'prix': plat['prix'],
+                                                    'quantite': 1,
+                                                  });
+                                                }
+                                                widget.onCartChanged();
+                                              },
+                                            );
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: const BoxDecoration(
+                                              color: kSecondaryColor,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(Icons.add,
+                                                color: Colors.white, size: 14),
                                           ),
-                                          child: const Icon(Icons.add,
-                                              color: Colors.white, size: 14),
                                         ),
                                       ],
                                     ),

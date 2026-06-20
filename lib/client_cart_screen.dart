@@ -46,10 +46,26 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
   @override
   void initState() {
     super.initState();
+    _syncCartItemsFromWidget();
+    _chargerReperesFavoris();
+  }
+
+  void _syncCartItemsFromWidget() {
     if (widget.cartItems != null) {
       _articlesPanier = List<Map<String, dynamic>>.from(widget.cartItems!);
+    } else {
+      _articlesPanier = [];
     }
-    _chargerReperesFavoris();
+  }
+
+  @override
+  void didUpdateWidget(covariant ClientCartScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.cartItems != widget.cartItems) {
+      setState(() {
+        _syncCartItemsFromWidget();
+      });
+    }
   }
 
   // Charge automatiquement les repères favoris du client pour lui faire gagner du temps

@@ -1,7 +1,8 @@
 import 'dart:io';
+import 'dart:convert';
 
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -14,12 +15,12 @@ class DirectorDashboardScreen extends StatefulWidget {
   const DirectorDashboardScreen({super.key});
 
   @override
-  State<DirectorDashboardScreen> createState() => _DirectorDashboardScreenState();
+  State<DirectorDashboardScreen> createState() =>
+      _DirectorDashboardScreenState();
 }
 
 class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
   final DirectorIAService _iaService = DirectorIAService();
 
   final _nomPlatController = TextEditingController();
@@ -33,6 +34,40 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
   bool _isSeeding = false;
   File? _imageSelectionnee;
 
+  /// Upload d'image vers Cloudinary
+  Future<String?> _uploadVersCloudinary(File imageLocale) async {
+    // IMPORTANT : remplace ces 2 valeurs par tes vrais identifiants Cloudinary
+    const String cloudName = "ton_cloud_name";
+    const String uploadPreset = "ton_preset_non_signe";
+
+    try {
+      final uri =
+          Uri.parse("https://api.cloudinary.com/v1_1/$cloudName/image/upload");
+
+      final request = http.MultipartRequest('POST', uri);
+      request.fields['upload_preset'] = uploadPreset;
+      request.files
+          .add(await http.MultipartFile.fromPath('file', imageLocale.path));
+
+      final streamedResponse = await request.send();
+      final responseBytes = await streamedResponse.stream.toBytes();
+      final responseString = utf8.decode(responseBytes);
+
+      if (streamedResponse.statusCode == 200 ||
+          streamedResponse.statusCode == 201) {
+        final decoded = jsonDecode(responseString) as Map<String, dynamic>;
+        final secureUrl = decoded['secure_url'];
+        return secureUrl is String ? secureUrl : null;
+      }
+
+      debugPrint('Cloudinary upload error: $responseString');
+      return null;
+    } catch (e) {
+      debugPrint('Cloudinary upload exception: $e');
+      return null;
+    }
+  }
+
   @override
   void dispose() {
     _nomPlatController.dispose();
@@ -43,7 +78,10 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
 
   Future<void> _choisirImage() async {
     final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 72);
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 72,
+    );
     if (image != null) {
       setState(() => _imageSelectionnee = File(image.path));
     }
@@ -69,7 +107,9 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
 
   Future<void> _ajouterNouveauPlat() async {
     final nom = _nomPlatController.text.trim();
-    final prix = double.tryParse(_prixPlatController.text.trim().replaceAll(',', '.'));
+    final prix = double.tryParse(
+      _prixPlatController.text.trim().replaceAll(',', '.'),
+    );
     final categorie = _categorieController.text.trim();
 
     if (nom.isEmpty || prix == null) {
@@ -84,9 +124,11 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
 
     try {
       if (_imageSelectionnee != null) {
-        final fileName = 'plats/${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final uploadTask = await _storage.ref().child(fileName).putFile(_imageSelectionnee!);
-        imageUrl = await uploadTask.ref.getDownloadURL();
+        final urlCloudinary = await _uploadVersCloudinary(_imageSelectionnee!);
+        if (urlCloudinary == null || urlCloudinary.isEmpty) {
+          throw Exception('Echec upload image sur Cloudinary');
+        }
+        imageUrl = urlCloudinary;
       }
 
       await _db.collection('menu').add({
@@ -136,7 +178,8 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
     });
   }
 
-  Future<void> _changerBadge(String docId, String champ, bool valeurActuelle) async {
+  Future<void> _changerBadge(
+      String docId, String champ, bool valeurActuelle) async {
     await _db.collection('menu').doc(docId).update({
       champ: !valeurActuelle,
       'updated_at': FieldValue.serverTimestamp(),
@@ -154,6 +197,7 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
       totalCommandes: totalCommandes,
       listePlatsVendus: platsVendus,
     );
+
     if (!mounted) return;
     setState(() {
       _rapportIA = rapport;
@@ -165,7 +209,8 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
   Widget build(BuildContext context) {
     return StaffScaffold(
       title: 'Directeur',
-      subtitle: 'Pilotage restaurant, menu, ventes, IA et configuration abonnement.',
+      subtitle:
+          'Pilotage restaurant, menu, ventes, IA et configuration abonnement.',
       icon: Icons.dashboard_customize,
       palette: StaffPalette.director,
       actions: [
@@ -183,7 +228,10 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
       ],
       children: [
         StreamBuilder<QuerySnapshot>(
-          stream: _db.collection('commandes').where('statut', isEqualTo: 'livre').snapshots(),
+          stream: _db
+              .collection('commandes')
+              .where('statut', isEqualTo: 'livre')
+              .snapshots(),
           builder: (context, snapshot) {
             double chiffreAffaires = 0;
             int totalCommandes = 0;
@@ -315,7 +363,8 @@ class _DirectorIaPanel extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.analytics),
-              label: Text(loading ? 'Analyse en cours...' : 'Lancer analyse IA'),
+              label:
+                  Text(loading ? 'Analyse en cours...' : 'Lancer analyse IA'),
             ),
           ),
         ],
@@ -403,7 +452,9 @@ class _MenuCreationPanel extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  imageSelectionnee == null ? 'Aucune image choisie' : 'Image prete',
+                  imageSelectionnee == null
+                      ? 'Aucune image choisie'
+                      : 'Image prete',
                   style: const TextStyle(color: Color(0xFF64748B)),
                 ),
               ),
@@ -432,7 +483,8 @@ class _MenuCreationPanel extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.save),
-              label: Text(loading ? 'Enregistrement...' : 'Enregistrer le plat'),
+              label:
+                  Text(loading ? 'Enregistrement...' : 'Enregistrer le plat'),
             ),
           ),
         ],
@@ -457,11 +509,15 @@ class _MenuManagementPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: db.collection('menu').orderBy('date_creation', descending: true).snapshots(),
+      stream: db
+          .collection('menu')
+          .orderBy('date_creation', descending: true)
+          .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
+
         final docs = snapshot.data!.docs;
         if (docs.isEmpty) {
           return const EmptyStaffState(
@@ -496,7 +552,8 @@ class _MenuManagementPanel extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.network(
-                        readText(plat, 'image', 'https://via.placeholder.com/80'),
+                        readText(
+                            plat, 'image', 'https://via.placeholder.com/80'),
                         width: 56,
                         height: 56,
                         fit: BoxFit.cover,
@@ -517,8 +574,9 @@ class _MenuManagementPanel extends StatelessWidget {
                             readText(plat, 'nom', 'Plat'),
                             style: TextStyle(
                               fontWeight: FontWeight.w900,
-                              decoration:
-                                  disponible ? TextDecoration.none : TextDecoration.lineThrough,
+                              decoration: disponible
+                                  ? TextDecoration.none
+                                  : TextDecoration.lineThrough,
                             ),
                           ),
                           const SizedBox(height: 3),
@@ -534,8 +592,12 @@ class _MenuManagementPanel extends StatelessWidget {
                                 label: disponible ? 'Disponible' : 'Retire',
                                 active: disponible,
                               ),
-                              if (populaire) const _MiniBadge(label: 'Populaire', active: true),
-                              if (nouveau) const _MiniBadge(label: 'Nouveau', active: true),
+                              if (populaire)
+                                const _MiniBadge(
+                                    label: 'Populaire', active: true),
+                              if (nouveau)
+                                const _MiniBadge(
+                                    label: 'Nouveau', active: true),
                             ],
                           ),
                         ],
@@ -543,23 +605,36 @@ class _MenuManagementPanel extends StatelessWidget {
                     ),
                     PopupMenuButton<String>(
                       onSelected: (value) {
-                        if (value == 'available') onAvailability(doc.id, disponible);
-                        if (value == 'popular') onBadge(doc.id, 'populaire', populaire);
-                        if (value == 'new') onBadge(doc.id, 'nouveau', nouveau);
-                        if (value == 'delete') onDelete(doc.id);
+                        if (value == 'available') {
+                          onAvailability(doc.id, disponible);
+                        }
+                        if (value == 'popular') {
+                          onBadge(doc.id, 'populaire', populaire);
+                        }
+                        if (value == 'new') {
+                          onBadge(doc.id, 'nouveau', nouveau);
+                        }
+                        if (value == 'delete') {
+                          onDelete(doc.id);
+                        }
                       },
                       itemBuilder: (_) => [
                         PopupMenuItem(
                           value: 'available',
-                          child: Text(disponible ? 'Retirer du menu' : 'Remettre au menu'),
+                          child: Text(disponible
+                              ? 'Retirer du menu'
+                              : 'Remettre au menu'),
                         ),
                         PopupMenuItem(
                           value: 'popular',
-                          child: Text(populaire ? 'Retirer populaire' : 'Marquer populaire'),
+                          child: Text(populaire
+                              ? 'Retirer populaire'
+                              : 'Marquer populaire'),
                         ),
                         PopupMenuItem(
                           value: 'new',
-                          child: Text(nouveau ? 'Retirer nouveau' : 'Marquer nouveau'),
+                          child: Text(
+                              nouveau ? 'Retirer nouveau' : 'Marquer nouveau'),
                         ),
                         const PopupMenuItem(
                           value: 'delete',

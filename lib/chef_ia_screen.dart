@@ -4,7 +4,6 @@ import 'branding_service.dart';
 import 'constants.dart';
 import 'gemini_service.dart';
 
-
 class ChefIaScreen extends StatefulWidget {
   const ChefIaScreen({super.key});
 
@@ -18,7 +17,6 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
   final ScrollController _scrollController = ScrollController();
 
   late List<Map<String, String>> _uiMessages;
-
   bool _isLoading = false;
   List<Map<String, dynamic>> _vraisPlats = [];
 
@@ -28,21 +26,23 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
     final brand = BrandingData.defaults();
     _uiMessages = [
       {
-        'role': 'assistant',
-        'message':
-            'Bienvenue dans les cuisines de ${brand.nom} ! 🍳 Je suis le Chef suprême IA. Donne-moi ton budget en MRU ou tes envies, et je te compose un festin inégalable !',
-      },
+        "role": "assistant",
+        "message":
+            "Bienvenue dans les cuisines de ${brand.nom} ! 🍳 Je suis le Chef suprême IA. Donne-moi ton budget en MRU ou tes envies, et je te compose un festin inégalable !"
+      }
     ];
     _chargerMenuDepuisFirestore();
   }
 
   void _chargerMenuDepuisFirestore() async {
     try {
-      final snapshot = await FirebaseFirestore.instance.collection('menu').get();
+      final snapshot =
+          await FirebaseFirestore.instance.collection('menu').get();
       setState(() {
         _vraisPlats = snapshot.docs.map((doc) {
           final data = doc.data();
-          return {...data, 'id': doc.id};
+          data['id'] = doc.id;
+          return data;
         }).toList();
       });
     } catch (e) {
@@ -68,46 +68,54 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
 
     _messageController.clear();
     setState(() {
-      _uiMessages.add({'role': 'user', 'message': texte});
+      _uiMessages.add({"role": "user", "message": texte});
       _isLoading = true;
     });
     _scrollToBottom();
 
-    final contexteMenu = _vraisPlats.isNotEmpty
+    // 1. Construction du contexte du Menu en MRU
+    String contexteMenu = _vraisPlats.isNotEmpty
         ? _vraisPlats
             .map((p) =>
-                '- ${p['nom']} : ${(p['prix'] as num?)?.toDouble() ?? 0.0} MRU (${p['description'] ?? 'Pas de description'})')
-            .join('\n')
-        : 'Aucun plat disponible pour le moment.';
+                "- ${p['nom']} : ${p['prix']} MRU (${p['description'] ?? 'Pas de description'})")
+            .join("\n")
+        : "Aucun plat disponible pour le moment.";
 
     final brand = BrandingData.defaults();
 
-    final superPrompt = superPrompt = 'Tu es le Chef Suprême IA de "${brand.nom}" à "${brand.ville}". Ton style est passionné, charismatique et ultra-professionnel (comme un chef de Shonen culinaire).\n\nTu t\'adresses à un client mauritanien. Tu dois obligatoirement utiliser la monnaie \'MRU\'.\n\nVoici la liste REELLE et STRICTE des plats disponibles dans nos cuisines actuellement :\n\n$contexteMenu\n\nRègles absolues que tu dois respecter :\n1. Si le client mentionne un budget (ex: 500 MRU), propose-lui une combinaison de plats de notre liste qui ne dépasse pas cette somme.\n2. Ne mentionne et ne conseille JAMAIS un plat qui n\'est pas explicitement écrit dans la liste ci-dessus.\n3. Sois concis, dynamique, donne envie et ajoute quelques emojis stylés.\n\nMessage du client : "$texte"';
+    // 2. Super Prompt d'injection système (Style Shokugeki / Efficace)
+    final superPrompt = """
+Tu es le Chef Suprême IA de '${brand.nom}' à Nouakchott. Ton style est passionné, charismatique et ultra-professionnel (comme un chef de Shonen culinaire).
+Tu t'adresses à un client mauritanien. Tu dois obligatoirement utiliser la monnaie 'MRU'.
+
+Voici la liste REELLE et STRICTE des plats disponibles dans nos cuisines actuellement :
+$contexteMenu
+
+Règles absolues que tu dois respecter :
+1. Si le client mentionne un budget (ex: 500 MRU), propose-lui une combinaison de plats de notre liste qui ne dépasse pas cette somme.
+2. Ne mentionne et ne conseille JAMAIS un plat qui n'est pas explicitement écrit dans la liste ci-dessus.
+3. Sois concis, dynamique, donne envie et ajoute quelques emojis stylés (🔥, 🍳, ⚡).
+
+Message du client : "$texte"
+""";
 
     try {
       final reponseIA = await _geminiService.generateChatResponse(superPrompt);
       setState(() {
-        _uiMessages.add({'role': 'assistant', 'message': reponseIA});
+        _uiMessages.add({"role": "assistant", "message": reponseIA});
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _uiMessages.add({
-          'role': 'assistant',
-          'message': 'Désolé, mes brûleurs ont eu un raté. Réessaye pour voir ! 🔥'
+          "role": "assistant",
+          "message":
+              "Désolé, mes brûleurs ont eu un raté. Réessaye pour voir ! 🔥"
         });
         _isLoading = false;
       });
     }
-
     _scrollToBottom();
-  }
-
-  @override
-  void dispose() {
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
   }
 
   @override
@@ -116,12 +124,11 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
       backgroundColor: kBackgroundColor,
       appBar: AppBar(
         title: const Text(
-          'CHEF IA EXPERT',
+          "CHEF IA EXPERT",
           style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-            color: Colors.white,
-          ),
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+              color: Colors.white),
         ),
         backgroundColor: kSurfaceColor,
         elevation: 0,
@@ -132,17 +139,19 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
               setState(() {
                 _uiMessages = [
                   {
-                    'role': 'assistant',
-                    'message': 'C'est reparti pour un nouveau round ! Des envies particulières ? 🍳'
+                    "role": "assistant",
+                    "message":
+                        "C'est reparti pour un nouveau round ! Des envies particulières ? 🍳"
                   }
                 ];
               });
             },
-          ),
+          )
         ],
       ),
       body: Column(
         children: [
+          // --- ZONE DES MESSAGES STYLE CYBER ---
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
@@ -150,20 +159,16 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
               itemCount: _uiMessages.length,
               itemBuilder: (context, index) {
                 final msg = _uiMessages[index];
-                final isUser = msg['role'] == 'user';
+                final isUser = msg["role"] == "user";
 
                 return Align(
                   alignment:
                       isUser ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.8,
-                    ),
+                    // maxWidth: MediaQuery.of(context).size.width * 0.8,
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: isUser ? kPrimaryColor : kSurfaceColor,
                       borderRadius: BorderRadius.only(
@@ -174,26 +179,15 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
                       ),
                       border: !isUser
                           ? Border.all(
-                              color: kPrimaryColor.withOpacity(0.45),
-                              width: 1.2,
-                            )
-                          : null,
-                      boxShadow: !isUser
-                          ? [
-                              BoxShadow(
-                                color: kPrimaryColor.withOpacity(0.18),
-                                blurRadius: 18,
-                                spreadRadius: 1,
-                              ),
-                            ]
+                              color: kPrimaryColor.withOpacity(0.3), width: 1)
                           : null,
                     ),
                     child: Text(
-                      msg['message'] ?? '',
+                      msg["message"] ?? "",
                       style: TextStyle(
                         color: isUser
                             ? Colors.white
-                            : Colors.white.withOpacity(0.92),
+                            : Colors.white.withOpacity(0.9),
                         fontSize: 14.5,
                         height: 1.4,
                       ),
@@ -203,6 +197,7 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
               },
             ),
           ),
+
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.only(bottom: 12.0),
@@ -210,13 +205,14 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
                 child: CircularProgressIndicator(color: kPrimaryColor),
               ),
             ),
+
+          // --- ZONE DE SAISIE PREMIUM ---
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: const BoxDecoration(
               color: kSurfaceColor,
-              border: Border(
-                top: BorderSide(color: Color(0xFF1E1E24), width: 1),
-              ),
+              border:
+                  Border(top: BorderSide(color: Color(0xFF1E1E24), width: 1)),
             ),
             child: SafeArea(
               child: Row(
@@ -233,7 +229,8 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
                         style: const TextStyle(color: Colors.white),
                         decoration: const InputDecoration(
                           hintText: "Ex: J'ai 600 MRU, tu me proposes quoi ?",
-                          hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                          hintStyle:
+                              TextStyle(color: Colors.grey, fontSize: 13),
                           border: InputBorder.none,
                         ),
                         onSubmitted: (_) => _envoyerMessage(),
@@ -244,7 +241,8 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
                   CircleAvatar(
                     backgroundColor: kPrimaryColor,
                     child: IconButton(
-                      icon: const Icon(Icons.send, color: Colors.white, size: 18),
+                      icon:
+                          const Icon(Icons.send, color: Colors.white, size: 18),
                       onPressed: _envoyerMessage,
                     ),
                   ),
@@ -257,4 +255,3 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
     );
   }
 }
-
