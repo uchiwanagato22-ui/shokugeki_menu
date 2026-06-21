@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // --- IMPORTS RÉELS ET VÉRIFIÉS ---
 import 'directeur_dashboard_screen.dart'; 
@@ -10,9 +11,9 @@ import 'livreur_dashboard_screen.dart';
 import 'restaurant_workflows.dart'; 
 import 'default_menu_plats.dart'; 
 import 'notification_service.dart'; 
-import 'chef_ia_screen.dart';   // Import de ton écran Chef IA
-import 'login_screen.dart';    // Import de ton VRAI écran de connexion complet
-import 'widgets/developer_contact_button.dart';
+import 'cuisine_screen.dart';
+import 'chef_ia_screen.dart';
+import 'login_screen.dart';
 
 const Color kPrimaryColor = Color(0xFF2196F3); 
 const Color kBackgroundColor = Color(0xFF090A0F);
@@ -78,7 +79,6 @@ class ShokugekiMenuApp extends StatelessWidget {
         future: _initialiserConfigurationComplete(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && !snapshot.hasError) {
-            // Utilise le LoginScreen importé de ton fichier login_screen.dart
             return const LoginScreen();
           }
           if (snapshot.hasError) {
@@ -118,7 +118,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
   final List<Widget> _pages = [
     const MenuClientPage(),
     const Center(child: Text("Vos Commandes s'afficheront ici", style: TextStyle(color: Colors.white54))),
-    const ChefIaScreen(), // Ton écran de discussion avec le Chef IA connecté
+    const ChefIaScreen(),
     const AboutContactPage(),
   ];
 
@@ -254,8 +254,9 @@ class AboutContactPage extends StatelessWidget {
   const AboutContactPage({super.key});
 
   Future<void> _lancerUrl(Uri uri) async {
-    // Suppression de l'appel à canLaunchUrl pour éviter les bugs sur Android 11+
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override

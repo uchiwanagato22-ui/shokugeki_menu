@@ -44,13 +44,15 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (_) => ClientCartScreen(cartItems: _cartItems)),
+        builder: (context) => ClientCartScreen(cartItems: _cartItems),
+      ),
     ).then((_) => setState(() {}));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kBackgroundColor,
       body: IndexedStack(
         index: _index,
         children: [
@@ -68,16 +70,25 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        backgroundColor: Colors.white,
+        backgroundColor: kSurfaceColor, 
         indicatorColor: kPrimaryColor.withOpacity(0.15),
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.restaurant_menu), label: "Menu"),
+              icon: Icon(Icons.restaurant_menu, color: Colors.white70), 
+              selectedIcon: Icon(Icons.restaurant_menu, color: kPrimaryColor),
+              label: "Menu"),
           NavigationDestination(
-              icon: Icon(Icons.receipt_long), label: "Commandes"),
-          NavigationDestination(icon: Icon(Icons.psychology), label: "Chef IA"),
+              icon: Icon(Icons.receipt_long, color: Colors.white70), 
+              selectedIcon: Icon(Icons.receipt_long, color: kPrimaryColor),
+              label: "Commandes"),
           NavigationDestination(
-              icon: Icon(Icons.info_outline), label: "Contact"),
+              icon: Icon(Icons.psychology, color: Colors.white70), 
+              selectedIcon: Icon(Icons.psychology, color: kPrimaryColor),
+              label: "Chef IA"),
+          NavigationDestination(
+              icon: Icon(Icons.info_outline, color: Colors.white70), 
+              selectedIcon: Icon(Icons.info_outline, color: kPrimaryColor),
+              label: "Contact"),
         ],
       ),
       floatingActionButton: _index == 0 && _cartCount > 0

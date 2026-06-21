@@ -87,7 +87,7 @@ class AboutContactScreen extends StatelessWidget {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.map_radial, color: kPrimaryColor, size: 40),
+                              const Icon(Icons.map, color: kPrimaryColor, size: 40),
                               const SizedBox(height: 8),
                               Text(
                                 "Nouakchott, Mauritanie",
