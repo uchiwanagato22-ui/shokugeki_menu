@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'constants.dart';
 import 'firestore_service.dart';
-import 'widgets/plat_detail_sheet.dart';
+import 'widgets/plat_detail_sheet.dart'; // Importation exacte ajustée à ton dossier widgets/
 
 class ClientMenuScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
@@ -50,123 +50,155 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    "Notre Menu",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                    "Notre Menu Shokugeki",
+                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                   ),
-                  if (widget.cartCount > 0)
-                    IconButton(
-                      icon: const Icon(Icons.shopping_cart, color: kPrimaryColor),
-                      onPressed: widget.onOpenCart,
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.shopping_bag, color: kPrimaryColor),
+                    onPressed: widget.onOpenCart,
+                  ),
                 ],
               ),
             ),
-            
-            // --- LISTE DES PLATS DEPUIS FIRESTORE ---
+
+            // --- FILTRE DES CATÉGORIES ---
+            SizedBox(
+              height: 50,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                children: ["Tout", "Poulet", "Burgers", "Divers"].map((categorie) {
+                  final isSelected = _selectedCategory == categorie;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      label: Text(categorie),
+                      selected: isSelected,
+                      selectedColor: kPrimaryColor,
+                      labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.grey),
+                      backgroundColor: kSurfaceColor,
+                      onSelected: (bool selected) {
+                        setState(() {
+                          _selectedCategory = categorie;
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // --- LISTE DES PLATS DEPUIS FIRESTORE (COLLECTION MENU) ---
             Expanded(
-              child: StreamBuilder<List<Map<String, dynamic>>>(
+              child: StreamBuilder<dynamic>(
                 stream: _firestoreService.streamMenu(),
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: kPrimaryColor));
-                  }
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  if (snapshot.hasError) {
                     return const Center(
-                      child: Text("Aucun plat disponible pour le moment.", style: TextStyle(color: Colors.grey)),
+                      child: Text("Erreur de chargement du menu", style: TextStyle(color: Colors.red)),
+                    );
+                  }
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: kPrimaryColor),
                     );
                   }
 
-                  final plats = snapshot.data!;
-                  
+                  final docs = snapshot.data?.docs ?? [];
+
+                  // Filtrage selon la catégorie sélectionnée
+                  final platsFiltres = docs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    if (_selectedCategory == "Tout") return true;
+                    return data['categorie'] == _selectedCategory;
+                  }).toList();
+
+                  if (platsFiltres.isEmpty) {
+                    return const Center(
+                      child: Text("Aucun plat disponible", style: TextStyle(color: Colors.grey)),
+                    );
+                  }
+
                   return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: plats.length,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: platsFiltres.length,
                     itemBuilder: (context, index) {
-                      final plat = plats[index];
-                      if (_selectedCategory != "Tout" && plat['categorie'] != _selectedCategory) {
-                        return const SizedBox.shrink();
-                      }
+                      final doc = platsFiltres[index];
+                      final plat = doc.data() as Map<String, dynamic>;
+                      plat['id'] = doc.id; // Injecte l'ID du document Firebase
+
+                      final imageUrl = plat['image']?.toString() ?? '';
 
                       return Card(
                         color: kSurfaceColor,
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (context) => PlatDetailSheet(
-                                plat: plat,
-                                onAjoute: (platAjoute) {
-                                  widget.cartItems.add(platAjoute);
-                                  widget.onCartChanged();
-                                },
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              // Image mise en cache
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: imageUrl.isNotEmpty
+                                    ? CachedNetworkImage(
+                                        imageUrl: imageUrl,
+                                        width: 80,
+                                        height: 80,
+                                        fit: BoxFit.cover,
+                                        placeholder: (context, url) => _placeholderImage(),
+                                        errorWidget: (context, url, error) => _placeholderImage(),
+                                      )
+                                    : _placeholderImage(),
                               ),
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: plat['image'] != null
-                                      ? CachedNetworkImage(
-                                          imageUrl: plat['image'],
-                                          width: 80,
-                                          height: 80,
-                                          fit: BoxFit.cover,
-                                          placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                                          errorWidget: (context, url, error) => _placeholderImage(),
-                                        )
-                                      : _placeholderImage(),
+                              const SizedBox(width: 16),
+                              // Informations textuelles
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      plat['nom'] ?? 'Plat sans nom',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      plat['description'] ?? '',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      "${plat['prix']} MRU",
+                                      style: const TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        plat['nom'] ?? '',
-                                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        plat['description'] ?? '',
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        "${plat['prix']} MRU",
-                                        style: const TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.add_circle, color: kPrimaryColor, size: 30),
-                                  onPressed: () {
-                                    showModalBottomSheet(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      backgroundColor: Colors.transparent,
-                                      builder: (context) => PlatDetailSheet(
-                                        plat: plat,
-                                        onAjoute: (platAjoute) {
-                                          widget.cartItems.add(platAjoute);
-                                          widget.onCartChanged();
-                                        },
-                                      ),
-                                    );
-                                  },
-                                )
-                              ],
-                            ),
+                              ),
+                              // Action : Appel direct de ta fonction globale afficherDetailPlat
+                              IconButton(
+                                icon: const Icon(Icons.add_circle, color: kPrimaryColor, size: 30),
+                                onPressed: () {
+                                  afficherDetailPlat(
+                                    context,
+                                    plat: plat,
+                                    onAjouter: () {
+                                      final itemDansPanier = {
+                                        'id': plat['id'],
+                                        'nom': plat['nom'],
+                                        'prix': (plat['prix'] as num).toDouble(),
+                                        'quantite': 1,
+                                        'categorie': plat['categorie']
+                                      };
+                                      widget.cartItems.add(itemDansPanier);
+                                      widget.onCartChanged();
+                                    },
+                                  );
+                                },
+                              )
+                            ],
                           ),
                         ),
                       );
