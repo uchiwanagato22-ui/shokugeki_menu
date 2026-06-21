@@ -79,7 +79,7 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
 
     final brand = BrandingData.defaults();
     final superPrompt = """
-Tu es le Chef Suprême IA de '${brand.nom}' à Nouakchott. Ton style est passionné, charismatique et ultra-professionnel. Tu t'adresses à un client mauritanien. Tu dois obligatoirement utiliser la monnaie 'MRU'.
+Tu es le Chef Suprême IA de '${brand.nom}' à Nouakchott. Ton style est passionné, charismatique et ultra-professionnel. Tu t'adresses à un client mauritanien. Tu doit obligatoirement utiliser la monnaie 'MRU'.
 Voici la liste REELLE des plats disponibles :
 $contexteMenu
 
@@ -91,7 +91,8 @@ Client dit : $texte
 """;
 
     try {
-      final reponseIA = await _geminiService.genererReponse(superPrompt);
+      // CORRECTION ICI : Appel de la bonne méthode présente dans gemini_service.dart
+      final reponseIA = await _geminiService.generateChatResponse(superPrompt);
       setState(() {
         _uiMessages.add({"role": "assistant", "message": reponseIA});
       });
@@ -116,7 +117,6 @@ Client dit : $texte
       ),
       body: Column(
         children: [
-          // Liste active des messages
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
@@ -152,7 +152,6 @@ Client dit : $texte
               padding: EdgeInsets.all(8.0),
               child: Center(child: CircularProgressIndicator(color: kPrimaryColor)),
             ),
-          // Zone de saisie
           Container(
             color: kSurfaceColor,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

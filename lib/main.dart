@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 // --- IMPORTS RÉELS ET VÉRIFIÉS ---
 import 'directeur_dashboard_screen.dart'; 
@@ -10,8 +9,9 @@ import 'caissier_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
 import 'restaurant_workflows.dart'; 
 import 'default_menu_plats.dart'; 
-import 'notification_service.dart'; // Importation de ton service de notification
-import 'chef_ia_screen.dart';
+import 'notification_service.dart'; 
+import 'chef_ia_screen.dart';   // Import de ton écran Chef IA
+import 'login_screen.dart';    // Import de ton VRAI écran de connexion complet
 import 'widgets/developer_contact_button.dart';
 
 const Color kPrimaryColor = Color(0xFF2196F3); 
@@ -21,11 +21,8 @@ const Color kAccentColor = Color(0xFFFFD700);
 const String kAppName = "Shokugeki Menu";
 const String kDeveloperPhone = "+22232652300";
 
-// --- GESTIONNAIRE DES NOTIFICATIONS EN ARRIÈRE-PLAN (BACKGROUND / TERMINATED) ---
-// Cette fonction doit obligatoirement être globale (hors de toute classe) et annotée ainsi.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // S'exécute lorsque l'application est fermée ou en arrière-plan
   print("Notification reçue en arrière-plan : ${message.notification?.title}");
 }
 
@@ -37,20 +34,15 @@ void main() async {
 class ShokugekiMenuApp extends StatelessWidget {
   const ShokugekiMenuApp({super.key});
 
-  // Initialisation complète : Firebase + FCM + Injection de données si vide
   Future<FirebaseApp> _initialiserConfigurationComplete() async {
     FirebaseApp app = await Firebase.initializeApp().timeout(
       const Duration(seconds: 8),
       onTimeout: () => throw Exception("Firebase ne répond pas."),
     );
 
-    // 1. Liaison du gestionnaire pour les messages en arrière-plan
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    // 2. Initialisation de ton service local de notifications
     await NotificationService.instance.init();
 
-    // 3. Vérification et remplissage automatique de la collection menu au premier démarrage
     final menuSnapshot = await FirebaseFirestore.instance.collection('menu').limit(1).get();
     if (menuSnapshot.docs.isEmpty) {
       for (var plat in kPlatsExempleMauritanie) {
@@ -86,6 +78,7 @@ class ShokugekiMenuApp extends StatelessWidget {
         future: _initialiserConfigurationComplete(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && !snapshot.hasError) {
+            // Utilise le LoginScreen importé de ton fichier login_screen.dart
             return const LoginScreen();
           }
           if (snapshot.hasError) {
@@ -113,112 +106,6 @@ class ShokugekiMenuApp extends StatelessWidget {
   }
 }
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
-
-  @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  final _inputController = TextEditingController();
-  bool _isLoading = false;
-
-  Future<void> _verifierAuthentification() async {
-    final entree = _inputController.text.trim();
-    if (entree.isEmpty) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final staffQuery = await FirebaseFirestore.instance
-          .collection('personnel')
-          .where('code_secret', isEqualTo: entree)
-          .limit(1)
-          .get();
-
-      if (staffQuery.docs.isNotEmpty) {
-        final data = staffQuery.docs.first.data();
-        final role = data['role']?.toString().trim() ?? '';
-
-        Widget cible = const ClientMainScreen();
-        
-        if (role == 'directeur') cible = const DirectorDashboardScreen(); 
-        if (role == 'caissier') cible = const CaissierDashboardScreen();
-        if (role == 'cuisine') cible = const KitchenDashboard();
-        if (role == 'livreur') cible = const LivreurDashboardScreen();
-
-        if (mounted) {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => cible));
-        }
-        return;
-      }
-
-      if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ClientMainScreen()));
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(backgroundColor: Colors.red, content: Text("Erreur de connexion.")),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.restaurant_menu_rounded, size: 80, color: kPrimaryColor),
-              const SizedBox(height: 16),
-              const Text(
-                "Shokugeki Menu",
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 1),
-              ),
-              const SizedBox(height: 40),
-              TextField(
-                controller: _inputController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: "Numéro de téléphone ou Code Secret",
-                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                  prefixIcon: const Icon(Icons.lock_outline, color: kPrimaryColor),
-                  hintText: "Ex: 46XXXXXX ou code staff...",
-                  filled: true,
-                  fillColor: kSurfaceColor,
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: kPrimaryColor, width: 2)),
-                ),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _verifierAuthentification,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kPrimaryColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  child: _isLoading 
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("Entrer", style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class ClientMainScreen extends StatefulWidget {
   const ClientMainScreen({super.key});
 
@@ -231,7 +118,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
   final List<Widget> _pages = [
     const MenuClientPage(),
     const Center(child: Text("Vos Commandes s'afficheront ici", style: TextStyle(color: Colors.white54))),
-    const ChefIaScreen(),
+    const ChefIaScreen(), // Ton écran de discussion avec le Chef IA connecté
     const AboutContactPage(),
   ];
 
@@ -367,9 +254,8 @@ class AboutContactPage extends StatelessWidget {
   const AboutContactPage({super.key});
 
   Future<void> _lancerUrl(Uri uri) async {
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    // Suppression de l'appel à canLaunchUrl pour éviter les bugs sur Android 11+
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
