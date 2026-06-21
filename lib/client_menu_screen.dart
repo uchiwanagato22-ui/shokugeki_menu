@@ -92,7 +92,8 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
             // --- LISTE DES PLATS DEPUIS FIRESTORE (COLLECTION MENU) ---
             Expanded(
               child: StreamBuilder<dynamic>(
-                stream: _firestoreService.streamMenu(),
+                // ICI CORRIGÉ : On appelle la bonne méthode 'recupererMenu()' de ton service
+                stream: _firestoreService.recupererMenu(),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return const Center(
