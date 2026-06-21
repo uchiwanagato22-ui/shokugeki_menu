@@ -34,10 +34,14 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
   bool _isSeeding = false;
   File? _imageSelectionnee;
 
-  /// Upload d'image vers Cloudinary configuré
+  /// Upload d'image vers Cloudinary avec tes vrais paramètres
   Future<String?> _uploadVersCloudinary(File imageLocale) async {
-    const String cloudName = "dmm16f6oo"; 
-    const String uploadPreset = "676d6081-ab92-4e98-b500-3e088776e6ed";
+    // =========================================================================
+    // TES PARAMÈTRES CONFIGURÉS EN DIRECT :
+    // =========================================================================
+    const String cloudName = "dr1rbdtph"; 
+    const String uploadPreset = "676d6081-ab92-4e98-b500-3e088776e6ed"; 
+    // =========================================================================
 
     try {
       final uri = Uri.parse("https://api.cloudinary.com/v1_1/$cloudName/image/upload");

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Ajouté pour la persistance de session
 import 'package:url_launcher/url_launcher.dart';
 
 // --- IMPORTS RÉELS ET VÉRIFIÉS ---
@@ -79,7 +80,24 @@ class ShokugekiMenuApp extends StatelessWidget {
         future: _initialiserConfigurationComplete(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done && !snapshot.hasError) {
-            return const LoginScreen();
+            // Écoute en temps réel de l'état d'authentification pour éviter la déconnexion automatique
+            return StreamBuilder<User?>(
+              stream: FirebaseAuth.instance.authStateChanges(),
+              builder: (context, authSnapshot) {
+                if (authSnapshot.connectionState == ConnectionState.active) {
+                  User? user = authSnapshot.data;
+                  if (user == null) {
+                    return const LoginScreen();
+                  } else {
+                    return const ClientMainScreen();
+                  }
+                }
+                return const Scaffold(
+                  backgroundColor: kBackgroundColor,
+                  body: Center(child: CircularProgressIndicator(color: kPrimaryColor)),
+                );
+              },
+            );
           }
           if (snapshot.hasError) {
             return const Scaffold(
@@ -115,9 +133,10 @@ class ClientMainScreen extends StatefulWidget {
 
 class _ClientMainScreenState extends State<ClientMainScreen> {
   int _currentIndex = 0;
+
   final List<Widget> _pages = [
     const MenuClientPage(),
-    const Center(child: Text("Vos Commandes s'afficheront ici", style: TextStyle(color: Colors.white54))),
+    const Center(child: Text("Mes Commandes 📦", style: TextStyle(color: Colors.white, fontSize: 18))),
     const ChefIaScreen(),
     const AboutContactPage(),
   ];
@@ -125,126 +144,110 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+      backgroundColor: kBackgroundColor,
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
+      bottomNavigationBar: NavigationBar(
         backgroundColor: kSurfaceColor,
-        selectedItemColor: kPrimaryColor,
-        unselectedItemColor: Colors.white54,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.restaurant), label: "Menu"),
-          BottomNavigationBarItem(icon: Icon(Icons.assignment), label: "Commandes"),
-          BottomNavigationBarItem(icon: Icon(Icons.psychology), label: "Chef IA"),
-          BottomNavigationBarItem(icon: Icon(Icons.info), label: "Contact"),
+        indicatorColor: kPrimaryColor.withOpacity(0.2),
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.restaurant_menu, color: Colors.white), label: "Menu"),
+          NavigationDestination(icon: Icon(Icons.receipt_long, color: Colors.white), label: "Commandes"),
+          NavigationDestination(icon: Icon(Icons.psychology, color: Colors.white), label: "Chef IA"),
+          NavigationDestination(icon: Icon(Icons.info_outline, color: Colors.white), label: "Infos"),
         ],
       ),
     );
   }
 }
 
-class MenuClientPage extends StatefulWidget {
+class MenuClientPage extends StatelessWidget {
   const MenuClientPage({super.key});
 
   @override
-  State<MenuClientPage> createState() => _MenuClientPageState();
-}
-
-class _MenuClientPageState extends State<MenuClientPage> {
-  String _selectedCategory = "Tout";
-  final List<String> _categories = ["Tout", "Burgers", "Pizzas", "Poulet", "Divers", "Desserts", "Boissons"];
-
-  @override
   Widget build(BuildContext context) {
-    Query query = FirebaseFirestore.instance.collection('menu').where('disponible', isEqualTo: true);
-    if (_selectedCategory != "Tout") {
-      query = query.where('categorie', isEqualTo: _selectedCategory);
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Notre Menu 🍽️", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
+        title: const Text("Le Menu Shokugeki 🍳", style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: kSurfaceColor,
         elevation: 0,
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: 60,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _categories.length,
-              itemBuilder: (context, index) {
-                final cat = _categories[index];
-                final isSelected = _selectedCategory == cat;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8.0, top: 8, bottom: 8),
-                  child: ChoiceChip(
-                    label: Text(cat),
-                    selected: isSelected,
-                    selectedColor: Colors.amber,
-                    onSelected: (_) => setState(() => _selectedCategory = cat),
-                  ),
-                );
-              },
-            ),
-          ),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: query.snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasError && snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                final docs = snapshot.data!.docs;
-                if (docs.isEmpty) {
-                  return const Center(child: Text("Aucun plat disponible.", style: TextStyle(color: Colors.white38)));
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: docs.length,
-                  itemBuilder: (context, index) {
-                    final item = docs[index].data() as Map<String, dynamic>;
-                    
-                    String nomPlat = item['nom'] ?? 'Plat';
-                    String descPlat = item['description'] ?? '';
-                    String imgPlat = item['image'] ?? 'https://via.placeholder.com/150';
-                    var prixPlat = item['prix'] ?? 0;
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('menu').orderBy('nom').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(child: Text("Erreur de chargement du menu.", style: TextStyle(color: Colors.white)));
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: kPrimaryColor));
+          }
 
-                    return Card(
-                      color: kSurfaceColor,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        leading: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            imgPlat, 
-                            width: 60, 
-                            height: 60, 
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.fastfood, size: 40, color: Colors.grey),
-                          ),
-                        ),
-                        title: Text(nomPlat, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                        subtitle: Text(descPlat, style: const TextStyle(color: Colors.white54), maxLines: 2, overflow: TextOverflow.ellipsis),
-                        trailing: Text(
-                          "$prixPlat MRU", 
-                          style: const TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold, fontSize: 16)
-                        ),
+          final docs = snapshot.data?.docs ?? [];
+          if (docs.isEmpty) {
+            return const Center(child: Text("Aucun plat disponible pour le moment.", style: TextStyle(color: Colors.grey)));
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final plat = docs[index].data() as Map<String, dynamic>;
+              final bool disponible = plat['disponible'] ?? true;
+
+              if (!disponible) return const SizedBox.shrink();
+
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: kSurfaceColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: plat['image'] != null && plat['image'].toString().startsWith('http')
+                          ? Image.network(plat['image'], width: 80, height: 80, fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => 
+                                  Container(width: 80, height: 80, color: Colors.grey[900], child: const Icon(Icons.fastfood, color: Colors.grey)))
+                          : Container(width: 80, height: 80, color: Colors.grey[900], child: const Icon(Icons.fastfood, color: Colors.grey)),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(plat['nom'] ?? 'Plat anonyme', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text(plat['description'] ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 8),
+                          Text("${plat['prix']} MRU", style: const TextStyle(color: kAccentColor, fontWeight: FontWeight.bold, fontSize: 14)),
+                        ],
                       ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_shopping_cart, color: kPrimaryColor),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("${plat['nom']} ajouté au panier !")),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }
@@ -253,9 +256,9 @@ class _MenuClientPageState extends State<MenuClientPage> {
 class AboutContactPage extends StatelessWidget {
   const AboutContactPage({super.key});
 
-  Future<void> _lancerUrl(Uri uri) async {
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+  Future<void> _lancerUrl(Uri url) async {
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      debugPrint("Impossible d'ouvrir : $url");
     }
   }
 
@@ -296,7 +299,13 @@ class AboutContactPage extends StatelessWidget {
       children: [
         Icon(icon, color: kPrimaryColor),
         const SizedBox(width: 16),
-        Text("$label: $value"),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        )
       ],
     );
   }
