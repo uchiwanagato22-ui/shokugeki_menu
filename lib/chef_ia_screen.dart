@@ -36,8 +36,7 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
 
   void _chargerMenuDepuisFirestore() async {
     try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection('menu').get();
+      final snapshot = await FirebaseFirestore.instance.collection('menu').get();
       setState(() {
         _vraisPlats = snapshot.docs.map((doc) {
           final data = doc.data();
@@ -73,49 +72,36 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
     });
     _scrollToBottom();
 
-    // 1. Construction du contexte du Menu en MRU
     String contexteMenu = _vraisPlats.isNotEmpty
-        ? _vraisPlats
-            .map((p) =>
-                "- ${p['nom']} : ${p['prix']} MRU (${p['description'] ?? 'Pas de description'})")
-            .join("\n")
-        : "Aucun plat disponible pour le moment.";
+        ? _vraisPlats.map((p) => "- ${p['nom']} : ${p['prix']} MRU (${p['description'] ?? ''})").join("\n")
+        : "Aucun plat disponible.";
 
     final brand = BrandingData.defaults();
-
-    // 2. Super Prompt d'injection système (Style Shokugeki / Efficace)
     final superPrompt = """
-Tu es le Chef Suprême IA de '${brand.nom}' à Nouakchott. Ton style est passionné, charismatique et ultra-professionnel (comme un chef de Shonen culinaire).
-Tu t'adresses à un client mauritanien. Tu dois obligatoirement utiliser la monnaie 'MRU'.
-
-Voici la liste REELLE et STRICTE des plats disponibles dans nos cuisines actuellement :
+Tu es le Chef Suprême IA de '${brand.nom}' à Nouakchott. Ton style est passionné, charismatique et ultra-professionnel. Tu t'adresses à un client mauritanien. Tu dois obligatoirement utiliser la monnaie 'MRU'.
+Voici la liste REELLE des plats disponibles :
 $contexteMenu
 
-Règles absolues que tu dois respecter :
-1. Si le client mentionne un budget (ex: 500 MRU), propose-lui une combinaison de plats de notre liste qui ne dépasse pas cette somme.
-2. Ne mentionne et ne conseille JAMAIS un plat qui n'est pas explicitement écrit dans la liste ci-dessus.
-3. Sois concis, dynamique, donne envie et ajoute quelques emojis stylés (🔥, 🍳, ⚡).
-
-Message du client : "$texte"
+Règles :
+1. Propose des combinaisons adaptées au budget en MRU donné.
+2. Ne conseille JAMAIS un plat absent de la liste.
+3. Sois dynamique et concis.
+Client dit : $texte
 """;
 
     try {
-      final reponseIA = await _geminiService.generateChatResponse(superPrompt);
+      final reponseIA = await _geminiService.genererReponse(superPrompt);
       setState(() {
         _uiMessages.add({"role": "assistant", "message": reponseIA});
-        _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _uiMessages.add({
-          "role": "assistant",
-          "message":
-              "Désolé, mes brûleurs ont eu un raté. Réessaye pour voir ! 🔥"
-        });
-        _isLoading = false;
+        _uiMessages.add({"role": "assistant", "message": "Désolé, mes fourneaux ont eu un problème technique. Réessaie !"});
       });
+    } finally {
+      setState(() => _isLoading = false);
+      _scrollToBottom();
     }
-    _scrollToBottom();
   }
 
   @override
@@ -123,114 +109,65 @@ Message du client : "$texte"
     return Scaffold(
       backgroundColor: kBackgroundColor,
       appBar: AppBar(
-        title: const Text(
-          "CHEF IA EXPERT",
-          style: TextStyle(
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-              color: Colors.white),
-        ),
+        title: const Text("Le Chef Suprême IA 🍳", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: kSurfaceColor,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: kAccentColor),
-            onPressed: () {
-              setState(() {
-                _uiMessages = [
-                  {
-                    "role": "assistant",
-                    "message":
-                        "C'est reparti pour un nouveau round ! Des envies particulières ? 🍳"
-                  }
-                ];
-              });
-            },
-          )
-        ],
       ),
       body: Column(
         children: [
-          // --- ZONE DES MESSAGES STYLE CYBER ---
+          // Liste active des messages
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.all(16),
               itemCount: _uiMessages.length,
               itemBuilder: (context, index) {
-                final msg = _uiMessages[index];
-                final isUser = msg["role"] == "user";
-
+                final m = _uiMessages[index];
+                final isUser = m["role"] == "user";
                 return Align(
-                  alignment:
-                      isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
-                    // maxWidth: MediaQuery.of(context).size.width * 0.8,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: isUser ? kPrimaryColor : kSurfaceColor,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(16),
-                        topRight: const Radius.circular(16),
-                        bottomLeft: Radius.circular(isUser ? 16 : 0),
-                        bottomRight: Radius.circular(isUser ? 0 : 16),
+                      borderRadius: BorderRadius.circular(16).copyWith(
+                        bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(0),
+                        bottomRight: isUser ? const Radius.circular(0) : const Radius.circular(16),
                       ),
-                      border: !isUser
-                          ? Border.all(
-                              color: kPrimaryColor.withOpacity(0.3), width: 1)
-                          : null,
                     ),
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
                     child: Text(
-                      msg["message"] ?? "",
-                      style: TextStyle(
-                        color: isUser
-                            ? Colors.white
-                            : Colors.white.withOpacity(0.9),
-                        fontSize: 14.5,
-                        height: 1.4,
-                      ),
+                      m["message"] ?? '',
+                      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.3),
                     ),
                   ),
                 );
               },
             ),
           ),
-
           if (_isLoading)
             const Padding(
-              padding: EdgeInsets.only(bottom: 12.0),
-              child: Center(
-                child: CircularProgressIndicator(color: kPrimaryColor),
-              ),
+              padding: EdgeInsets.all(8.0),
+              child: Center(child: CircularProgressIndicator(color: kPrimaryColor)),
             ),
-
-          // --- ZONE DE SAISIE PREMIUM ---
+          // Zone de saisie
           Container(
+            color: kSurfaceColor,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: kSurfaceColor,
-              border:
-                  Border(top: BorderSide(color: Color(0xFF1E1E24), width: 1)),
-            ),
             child: SafeArea(
               child: Row(
                 children: [
                   Expanded(
                     child: Container(
-                      decoration: BoxDecoration(
-                        color: kBackgroundColor,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
+                      decoration: BoxDecoration(color: kBackgroundColor, borderRadius: BorderRadius.circular(24)),
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: TextField(
                         controller: _messageController,
                         style: const TextStyle(color: Colors.white),
                         decoration: const InputDecoration(
                           hintText: "Ex: J'ai 600 MRU, tu me proposes quoi ?",
-                          hintStyle:
-                              TextStyle(color: Colors.grey, fontSize: 13),
+                          hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
                           border: InputBorder.none,
                         ),
                         onSubmitted: (_) => _envoyerMessage(),
@@ -241,8 +178,7 @@ Message du client : "$texte"
                   CircleAvatar(
                     backgroundColor: kPrimaryColor,
                     child: IconButton(
-                      icon:
-                          const Icon(Icons.send, color: Colors.white, size: 18),
+                      icon: const Icon(Icons.send, color: Colors.white, size: 18),
                       onPressed: _envoyerMessage,
                     ),
                   ),

@@ -34,30 +34,25 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
   bool _isSeeding = false;
   File? _imageSelectionnee;
 
-  /// Upload d'image vers Cloudinary
+  /// Upload d'image vers Cloudinary configuré
   Future<String?> _uploadVersCloudinary(File imageLocale) async {
-    // IMPORTANT : remplace ces 2 valeurs par tes vrais identifiants Cloudinary
-    const String cloudName = "ton_cloud_name";
-    const String uploadPreset = "ton_preset_non_signe";
+    const String cloudName = "dmm16f6oo"; 
+    const String uploadPreset = "676d6081-ab92-4e98-b500-3e088776e6ed";
 
     try {
-      final uri =
-          Uri.parse("https://api.cloudinary.com/v1_1/$cloudName/image/upload");
+      final uri = Uri.parse("https://api.cloudinary.com/v1_1/$cloudName/image/upload");
 
       final request = http.MultipartRequest('POST', uri);
       request.fields['upload_preset'] = uploadPreset;
-      request.files
-          .add(await http.MultipartFile.fromPath('file', imageLocale.path));
+      request.files.add(await http.MultipartFile.fromPath('file', imageLocale.path));
 
       final streamedResponse = await request.send();
       final responseBytes = await streamedResponse.stream.toBytes();
       final responseString = utf8.decode(responseBytes);
 
-      if (streamedResponse.statusCode == 200 ||
-          streamedResponse.statusCode == 201) {
+      if (streamedResponse.statusCode == 200 || streamedResponse.statusCode == 201) {
         final decoded = jsonDecode(responseString) as Map<String, dynamic>;
-        final secureUrl = decoded['secure_url'];
-        return secureUrl is String ? secureUrl : null;
+        return decoded['secure_url'] as String?;
       }
 
       debugPrint('Cloudinary upload error: $responseString');
@@ -236,7 +231,6 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
             double chiffreAffaires = 0;
             int totalCommandes = 0;
             final platsVendus = <String>[];
-
             if (snapshot.hasData) {
               totalCommandes = snapshot.data!.docs.length;
               for (final doc in snapshot.data!.docs) {
@@ -249,7 +243,6 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
                 }
               }
             }
-
             return Column(
               children: [
                 Row(
@@ -293,20 +286,258 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen> {
           prixController: _prixPlatController,
           categorieController: _categorieController,
           imageSelectionnee: _imageSelectionnee,
-          loading: _isUploading,
+          isUploading: _isUploading,
           onPickImage: _choisirImage,
-          onSave: _ajouterNouveauPlat,
+          onSubmit: _ajouterNouveauPlat,
         ),
-        const SizedBox(height: 12),
-        _MenuManagementPanel(
-          db: _db,
-          onAvailability: _changerDisponibilite,
-          onBadge: _changerBadge,
-          onDelete: _supprimerPlat,
+        const SizedBox(height: 16),
+        const Text(
+          'Gestion du menu en direct',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
-        const SizedBox(height: 12),
-        const DeveloperContactButton(),
+        const SizedBox(height: 8),
+        StreamBuilder<QuerySnapshot>(
+          stream: _db.collection('menu').orderBy('updated_at', descending: true).snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                alignment: Alignment.center,
+                child: const Text(
+                  'Aucun plat au menu. Remplissez le formulaire ci-dessus.',
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              );
+            }
+
+            final docs = snapshot.data!.docs;
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: docs.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final doc = docs[index];
+                final d = doc.data() as Map<String, dynamic>;
+                final String n = d['nom'] ?? 'Sans nom';
+                final double p = readMoney(d['prix']);
+                final String cat = d['categorie'] ?? 'Divers';
+                final String img = d['image'] ?? '';
+                final bool disp = d['disponible'] ?? true;
+                final bool populaire = d['populaire'] ?? false;
+                final bool nouveau = d['nouveau'] ?? false;
+
+                return Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF14161D),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.05)),
+                  ),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: img.isNotEmpty
+                            ? Image.network(img, width: 50, height: 50, fit: BoxFit.cover,
+                                errorBuilder: (c, o, s) => Container(
+                                      color: Colors.white10,
+                                      width: 50,
+                                      height: 50,
+                                      child: const Icon(Icons.fastfood, color: Colors.grey, size: 20),
+                                    ))
+                            : Container(color: Colors.white10, width: 50, height: 50),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(n, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Text('$p MRU', style: const TextStyle(color: Color(0xFF2196F3), fontWeight: FontWeight.bold, fontSize: 12)),
+                                const SizedBox(width: 8),
+                                Text('•  $cat', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                _MiniBadge(label: 'POPULAIRE', active: populaire),
+                                const SizedBox(width: 4),
+                                _MiniBadge(label: 'NOUVEAU', active: nouveau),
+                              ],
+                            )
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        activeColor: const Color(0xFF2196F3),
+                        value: disp,
+                        onChanged: (v) => _changerDisponibilite(doc.id, disp),
+                      ),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, color: Colors.grey),
+                        onSelected: (val) {
+                          if (val == 'delete') {
+                            _supprimerPlat(doc.id);
+                          } else {
+                            _changerBadge(doc.id, val, val == 'popular' ? populaire : nouveau);
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'popular',
+                            child: Text(populaire ? 'Retirer populaire' : 'Marquer populaire'),
+                          ),
+                          PopupMenuItem(
+                            value: 'new',
+                            child: Text(nouveau ? 'Retirer nouveau' : 'Marquer nouveau'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Supprimer', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+        const Center(child: DeveloperContactButton()),
       ],
+    );
+  }
+}
+
+class _MenuCreationPanel extends StatelessWidget {
+  const _MenuCreationPanel({
+    required this.nomController,
+    required this.prixController,
+    required this.categorieController,
+    required this.imageSelectionnee,
+    required this.isUploading,
+    required this.onPickImage,
+    required this.onSubmit,
+  });
+
+  final TextEditingController nomController;
+  final TextEditingController prixController;
+  final TextEditingController categorieController;
+  final File? imageSelectionnee;
+  final bool isUploading;
+  final VoidCallback onPickImage;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14161D),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Ajouter un plat au menu',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: nomController,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              labelText: 'Nom du plat',
+              labelStyle: TextStyle(color: Colors.grey),
+              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF2196F3))),
+              prefixIcon: Icon(Icons.fastfood, color: Colors.grey),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: prixController,
+            style: const TextStyle(color: Colors.white),
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Prix (MRU)',
+              labelStyle: TextStyle(color: Colors.grey),
+              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF2196F3))),
+              prefixIcon: Icon(Icons.payments, color: Colors.grey),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: categorieController,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              labelText: 'Catégorie (Ex: Burgers, Poulet, Pizzas)',
+              labelStyle: TextStyle(color: Colors.grey),
+              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF2196F3))),
+              prefixIcon: Icon(Icons.category, color: Colors.grey),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: onPickImage,
+                  icon: const Icon(Icons.image, size: 18, color: Colors.white),
+                  label: const Text('Image du plat', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.05),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              if (imageSelectionnee != null) ...[
+                const SizedBox(width: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.file(imageSelectionnee!, width: 40, height: 40, fit: BoxFit.cover),
+                ),
+              ]
+            ],
+          ),
+          const SizedBox(height: 16),
+          isUploading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF2196F3)))
+              : SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    onPressed: onSubmit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2196F3),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text(
+                      'Enregistrer le plat',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ),
+        ],
+      ),
     );
   }
 }
@@ -325,330 +556,46 @@ class _DirectorIaPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFDDD6FE)),
+        color: const Color(0xFF14161D),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.amber.withOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Consultant IA du restaurant',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            rapport,
-            style: const TextStyle(color: Color(0xFF475569), height: 1.4),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: loading ? null : onAnalyze,
-              icon: loading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.analytics),
-              label:
-                  Text(loading ? 'Analyse en cours...' : 'Lancer analyse IA'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MenuCreationPanel extends StatelessWidget {
-  const _MenuCreationPanel({
-    required this.nomController,
-    required this.prixController,
-    required this.categorieController,
-    required this.imageSelectionnee,
-    required this.loading,
-    required this.onPickImage,
-    required this.onSave,
-  });
-
-  final TextEditingController nomController;
-  final TextEditingController prixController;
-  final TextEditingController categorieController;
-  final File? imageSelectionnee;
-  final bool loading;
-  final VoidCallback onPickImage;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Ajouter un plat',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: nomController,
-            decoration: const InputDecoration(
-              labelText: 'Nom du plat',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(
-                child: TextField(
-                  controller: prixController,
-                  decoration: const InputDecoration(
-                    labelText: 'Prix MRU',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
+              const Icon(Icons.psychology, color: Colors.amber, size: 22),
+              const SizedBox(width: 8),
+              const Text(
+                'Chef IA Stratégie',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: categorieController,
-                  decoration: const InputDecoration(
-                    labelText: 'Categorie',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
+              const Spacer(),
+              if (!loading)
+                TextButton.icon(
+                  onPressed: onAnalyze,
+                  icon: const Icon(Icons.bolt, size: 16, color: Colors.amber),
+                  label: const Text('Analyser', style: TextStyle(color: Colors.amber, fontSize: 12)),
+                )
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              OutlinedButton.icon(
-                onPressed: onPickImage,
-                icon: const Icon(Icons.image),
-                label: const Text('Image'),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  imageSelectionnee == null
-                      ? 'Aucune image choisie'
-                      : 'Image prete',
-                  style: const TextStyle(color: Color(0xFF64748B)),
-                ),
-              ),
-              if (imageSelectionnee != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.file(
-                    imageSelectionnee!,
-                    height: 46,
-                    width: 46,
-                    fit: BoxFit.cover,
+          const SizedBox(height: 8),
+          loading
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(color: Colors.amber),
                   ),
+                )
+              : Text(
+                  rapport,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12, height: 1.4),
                 ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton.icon(
-              onPressed: loading ? null : onSave,
-              icon: loading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save),
-              label:
-                  Text(loading ? 'Enregistrement...' : 'Enregistrer le plat'),
-            ),
-          ),
         ],
       ),
-    );
-  }
-}
-
-class _MenuManagementPanel extends StatelessWidget {
-  const _MenuManagementPanel({
-    required this.db,
-    required this.onAvailability,
-    required this.onBadge,
-    required this.onDelete,
-  });
-
-  final FirebaseFirestore db;
-  final void Function(String docId, bool current) onAvailability;
-  final void Function(String docId, String field, bool current) onBadge;
-  final void Function(String docId) onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: db
-          .collection('menu')
-          .orderBy('date_creation', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final docs = snapshot.data!.docs;
-        if (docs.isEmpty) {
-          return const EmptyStaffState(
-            icon: Icons.menu_book,
-            title: 'Menu vide',
-            message: 'Ajoutez vos premiers plats pour commencer a vendre.',
-          );
-        }
-
-        return Column(
-          children: [
-            StaffSectionTitle(
-              title: 'Gestion du menu',
-              trailing: '${docs.length} plat(s)',
-            ),
-            ...docs.map((doc) {
-              final plat = doc.data() as Map<String, dynamic>;
-              final disponible = plat['disponible'] != false;
-              final populaire = plat['populaire'] == true;
-              final nouveau = plat['nouveau'] == true;
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        readText(
-                            plat, 'image', 'https://via.placeholder.com/80'),
-                        width: 56,
-                        height: 56,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 56,
-                          height: 56,
-                          color: const Color(0xFFF1F5F9),
-                          child: const Icon(Icons.fastfood),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            readText(plat, 'nom', 'Plat'),
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              decoration: disponible
-                                  ? TextDecoration.none
-                                  : TextDecoration.lineThrough,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            "${readMoney(plat['prix']).toStringAsFixed(0)} MRU - ${readText(plat, 'categorie', 'Menu')}",
-                            style: const TextStyle(color: Color(0xFF64748B)),
-                          ),
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 6,
-                            children: [
-                              _MiniBadge(
-                                label: disponible ? 'Disponible' : 'Retire',
-                                active: disponible,
-                              ),
-                              if (populaire)
-                                const _MiniBadge(
-                                    label: 'Populaire', active: true),
-                              if (nouveau)
-                                const _MiniBadge(
-                                    label: 'Nouveau', active: true),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'available') {
-                          onAvailability(doc.id, disponible);
-                        }
-                        if (value == 'popular') {
-                          onBadge(doc.id, 'populaire', populaire);
-                        }
-                        if (value == 'new') {
-                          onBadge(doc.id, 'nouveau', nouveau);
-                        }
-                        if (value == 'delete') {
-                          onDelete(doc.id);
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        PopupMenuItem(
-                          value: 'available',
-                          child: Text(disponible
-                              ? 'Retirer du menu'
-                              : 'Remettre au menu'),
-                        ),
-                        PopupMenuItem(
-                          value: 'popular',
-                          child: Text(populaire
-                              ? 'Retirer populaire'
-                              : 'Marquer populaire'),
-                        ),
-                        PopupMenuItem(
-                          value: 'new',
-                          child: Text(
-                              nouveau ? 'Retirer nouveau' : 'Marquer nouveau'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text('Supprimer'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        );
-      },
     );
   }
 }
@@ -667,14 +614,14 @@ class _MiniBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: active ? const Color(0xFFF5F3FF) : const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(8),
+        color: active ? const Color(0xFF2196F3).withOpacity(0.1) : Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 11,
-          color: active ? const Color(0xFF6D28D9) : const Color(0xFF64748B),
+          fontSize: 9,
+          color: active ? const Color(0xFF2196F3) : Colors.grey,
           fontWeight: FontWeight.w800,
         ),
       ),

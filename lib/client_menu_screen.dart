@@ -24,8 +24,7 @@ class ClientMenuScreen extends StatefulWidget {
 
 class _ClientMenuScreenState extends State<ClientMenuScreen> {
   String _selectedCategory = "Tout";
-  final FirestoreService _firestoreService =
-      FirestoreService(); // Instance de ton service
+  final FirestoreService _firestoreService = FirestoreService();
 
   @override
   Widget build(BuildContext context) {
@@ -41,276 +40,140 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Notre Menu 🍽️",
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        "Fait maison, livré rapidement",
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
-                      ),
-                    ],
+                  const Text(
+                    "Notre Menu",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   if (widget.cartCount > 0)
                     IconButton(
-                      icon:
-                          const Icon(Icons.shopping_cart, color: kPrimaryColor),
+                      icon: const Icon(Icons.shopping_cart, color: kPrimaryColor),
                       onPressed: widget.onOpenCart,
                     ),
                 ],
               ),
             ),
-
-            // --- BARRE DE CATÉGORIES ---
-            SizedBox(
-              height: 50,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: kDefaultCategories.length,
-                itemBuilder: (context, index) {
-                  String cat = kDefaultCategories[index];
-                  bool isSelected = _selectedCategory == cat;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ChoiceChip(
-                      label: Text(cat),
-                      selected: isSelected,
-                      onSelected: (val) {
-                        if (val) setState(() => _selectedCategory = cat);
-                      },
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.black : Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      backgroundColor: const Color(0xFF1A1A22),
-                      selectedColor: kAccentColor,
-                      side: BorderSide.none,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            // --- LISTE DES PLATS DYNAMIQUE (STREAMBUILDER) ---
+            
+            // --- LISTE DES PLATS DEPUIS FIRESTORE ---
             Expanded(
               child: StreamBuilder<List<Map<String, dynamic>>>(
-                stream: _firestoreService
-                    .obtenirLeMenu(), // Ton flux de données Firebase
+                stream: _firestoreService.streamMenu(),
                 builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return const Center(
-                      child: Text("Erreur de chargement du menu ❌",
-                          style: TextStyle(color: Colors.red)),
-                    );
-                  }
-
                   if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: kPrimaryColor));
+                  }
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
                     return const Center(
-                      child: CircularProgressIndicator(color: kPrimaryColor),
+                      child: Text("Aucun plat disponible pour le moment.", style: TextStyle(color: Colors.grey)),
                     );
                   }
 
-                  final tousLesPlats = snapshot.data ?? [];
+                  final plats = snapshot.data!;
+                  // À intégrer dans le ListView.builder de client_menu_screen.dart
+return ListView.builder(
+  padding: const EdgeInsets.symmetric(horizontal: 16),
+  itemCount: plats.length,
+  itemBuilder: (context, index) {
+    final plat = plats[index];
+    // Filtre de catégorie basique
+    if (_selectedCategory != "Tout" && plat['categorie'] != _selectedCategory) {
+      return const SizedBox.shrink();
+    }
 
-                  // Filtrer les plats selon la catégorie sélectionnée ET leur disponibilité
-                  final platsFiltres = tousLesPlats.where((plat) {
-                    // Masquer le plat si le gérant l'a marqué comme indisponible
-                    bool dispo = plat['disponible'] ?? true;
-                    if (!dispo) return false;
-
-                    if (_selectedCategory == "Tout") return true;
-                    return plat['categorie'] == _selectedCategory;
-                  }).toList();
-
-                  if (platsFiltres.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        "Aucun plat disponible dans cette catégorie. 🍕",
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
-                      ),
-                    );
-                  }
-
-                  // Grille des plats
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: 0.78,
+    return Card(
+      color: kSurfaceColor,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        // Rendre toute la ligne cliquable pour ouvrir la feuille de détails !
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => PlatDetailSheet(
+              plat: plat,
+              onAjoute: (platAjoute) {
+                widget.cartItems.add(platAjoute);
+                widget.onCartChanged();
+              },
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              // Image du plat
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: plat['image'] != null
+                    ? CachedNetworkImage(
+                        imageUrl: plat['image'],
+                        width: 80,
+                        height: 80,
+                        fit: cover,
+                        placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                        errorWidget: (context, url, error) => _placeholderImage(),
+                      )
+                    : _placeholderImage(),
+              ),
+              const SizedBox(width: 16),
+              // Détails textuels
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      plat['nom'] ?? '',
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    itemCount: platsFiltres.length,
-                    itemBuilder: (context, index) {
-                      final plat = platsFiltres[index];
-
-                      // Vérification ultra sécurisée si l'image est une URL internet valide (Postimages, ImgBB, Unsplash...)
-                      final String imageUrl =
-                          plat['image']?.toString().trim() ?? '';
-                      final bool hasValidUrl = imageUrl.startsWith('http://') ||
-                          imageUrl.startsWith('https://');
-
-                      return InkWell(
-                        onTap: () {
-                          // Ouvre la feuille de détails présente dans ton fichier plat_detail_sheet.dart
-                          afficherDetailPlat(
-                            context,
-                            plat: plat,
-                            onAjouter: () {
-                              // Logique d'ajout au panier existante
-                              final existingIndex = widget.cartItems.indexWhere(
-                                  (item) => item['id'] == plat['id']);
-                              if (existingIndex >= 0) {
-                                widget.cartItems[existingIndex]['quantite']++;
-                              } else {
-                                widget.cartItems.add({
-                                  'id': plat['id'],
-                                  'nom': plat['nom'],
-                                  'prix': plat['prix'],
-                                  'quantite': 1,
-                                });
-                              }
-                              widget.onCartChanged();
-                            },
-                          );
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1A1A22),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                                color: Colors.white.withOpacity(0.03)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Image du plat avec mise en cache ou Placeholder gratuit
-                              Expanded(
-                                child: ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(16)),
-                                  child: hasValidUrl
-                                      ? CachedNetworkImage(
-                                          imageUrl: imageUrl,
-                                          width: double.infinity,
-                                          fit: BoxFit.cover,
-                                          placeholder: (context, url) =>
-                                              Container(
-                                            color: const Color(0xFF2A2A32),
-                                            child: const Center(
-                                              child: CircularProgressIndicator(
-                                                  color: kPrimaryColor,
-                                                  strokeWidth: 2),
-                                            ),
-                                          ),
-                                          errorWidget: (context, url, error) =>
-                                              _placeholderImage(),
-                                        )
-                                      : _placeholderImage(),
-                                ),
-                              ),
-
-                              // Infos du plat
-                              Padding(
-                                padding: const EdgeInsets.all(10),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      plat['nom'] ?? '',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          "${plat['prix']} MRU",
-                                          style: const TextStyle(
-                                              color: kPrimaryColor,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 15),
-                                        ),
-                                        InkWell(
-                                          onTap: () {
-                                            afficherDetailPlat(
-                                              context,
-                                              plat: plat,
-                                              onAjouter: () {
-                                                final existingIndex = widget
-                                                    .cartItems
-                                                    .indexWhere((item) =>
-                                                        item['id'] ==
-                                                        plat['id']);
-                                                if (existingIndex >= 0) {
-                                                  widget.cartItems[
-                                                          existingIndex]
-                                                      ['quantite']++;
-                                                } else {
-                                                  widget.cartItems.add({
-                                                    'id': plat['id'],
-                                                    'nom': plat['nom'],
-                                                    'prix': plat['prix'],
-                                                    'quantite': 1,
-                                                  });
-                                                }
-                                                widget.onCartChanged();
-                                              },
-                                            );
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: const BoxDecoration(
-                                              color: kSecondaryColor,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(Icons.add,
-                                                color: Colors.white, size: 14),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              )
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                    const SizedBox(height: 4),
+                    Text(
+                      plat['description'] ?? '',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "${plat['prix']} MRU",
+                      style: const TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              // Le Bouton d'action Plus devient enfin actif !
+              IconButton(
+                icon: const Icon(Icons.add_circle, color: kPrimaryColor, size: 30),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => PlatDetailSheet(
+                      plat: plat,
+                      onAjoute: (platAjoute) {
+                        widget.cartItems.add(platAjoute);
+                        widget.onCartChanged();
+                      },
+                    ),
                   );
                 },
-              ),
-            ),
-          ],
+              )
+            ],
+          ),
         ),
       ),
     );
-  }
+  },
+);
 
   Widget _placeholderImage() {
     return Container(
       color: const Color(0xFF2A2A32),
-      width: double.infinity,
+      width: 100,
+      height: 100,
       child: const Icon(Icons.fastfood, color: Colors.grey, size: 36),
     );
   }

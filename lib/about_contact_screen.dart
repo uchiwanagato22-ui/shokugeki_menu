@@ -8,12 +8,14 @@ class AboutContactScreen extends StatelessWidget {
   const AboutContactScreen({super.key});
 
   Future<void> _ouvrirUrl(Uri uri) async {
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    // Correction url_launcher pour forcer l'ouverture externe sur mobile
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      debugPrint("Impossible d'ouvrir l'url : $uri");
     }
   }
 
   String _whatsappUri(String numero) {
+    // Supprime les espaces et caractères spéciaux sauf les chiffres
     final clean = numero.replaceAll(RegExp(r'[^\d]'), '');
     return "https://wa.me/$clean";
   }
@@ -52,11 +54,51 @@ class AboutContactScreen extends StatelessWidget {
                 const SizedBox(height: 32),
 
                 // --- INFOS DU RESTAURANT ---
-                _infoCard(
-                    Icons.access_time, "Horaires d'ouverture", brand.horaires),
+                _infoCard(Icons.access_time, "Horaires d'ouverture", brand.horaires),
                 const SizedBox(height: 12),
-                _infoCard(
-                    Icons.location_on_outlined, "Notre Adresse", brand.adresse),
+                _infoCard(Icons.location_on_outlined, "Notre Adresse", brand.adresse),
+                const SizedBox(height: 12),
+                
+                // --- APERÇU DE LA CARTE (Évite l'effet désert vide) ---
+                Container(
+                  height: 150,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: kSurfaceColor,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Opacity(
+                            opacity: 0.3,
+                            child: GridPaper(
+                              color: kPrimaryColor,
+                              divisions: 2,
+                              subdivisions: 1,
+                            ),
+                          ),
+                        ),
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.map_radial, color: kPrimaryColor, size: 40),
+                              const SizedBox(height: 8),
+                              Text(
+                                "Nouakchott, Mauritanie",
+                                style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 13, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
 
                 // --- BOUTONS D'ACTION RESTAURANT ---
@@ -65,7 +107,7 @@ class AboutContactScreen extends StatelessWidget {
                   label: "Appeler le Restaurant",
                   subtitle: brand.telephone,
                   color: Colors.green,
-                  onTap: () => _ouvrirUrl(Uri.parse("tel:${brand.telephone}")),
+                  onTap: () => _ouvrirUrl(Uri.parse("tel:${brand.telephone.replaceAll(' ', '')}")),
                 ),
                 const SizedBox(height: 12),
                 _actionButton(
@@ -73,69 +115,13 @@ class AboutContactScreen extends StatelessWidget {
                   label: "WhatsApp du Restaurant",
                   subtitle: "Passer commande en direct",
                   color: const Color(0xFF25D366),
-                  onTap: () =>
-                      _ouvrirUrl(Uri.parse(_whatsappUri(brand.whatsapp))),
+                  onTap: () {
+                    // Utilisation directe du numéro cible +22232652300 par défaut si brand est vide
+                    final numWh = brand.whatsapp.isNotEmpty ? brand.whatsapp : "+22232652300";
+                    _ouvrirUrl(Uri.parse(_whatsappUri(numWh)));
+                  },
                 ),
-
                 const SizedBox(height: 40),
-                const Divider(color: Colors.white10),
-                const SizedBox(height: 20),
-
-                // ══════════════════════════════════════════════════════════
-                // 🔥 NOUVELLE FONCTIONNALITÉ : TON APPORT FREELANCE / COMMERCIAL
-                // ══════════════════════════════════════════════════════════
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: kPrimaryColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: kPrimaryColor.withOpacity(0.2)),
-                  ),
-                  child: Column(
-                    children: [
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.code, color: kPrimaryColor, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            "Propulsé par Uchiwa Nagato",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                fontSize: 14),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        "Vous voulez une application iOS/Android sur-mesure ou un site web connecté pour votre propre business ?",
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          final devUrl = _whatsappUri(kDeveloperPhone);
-                          _ouvrirUrl(Uri.parse(devUrl));
-                        },
-                        icon: const Icon(Icons.bolt, color: Colors.black),
-                        label: const Text(
-                          "Commander mon Application",
-                          style: TextStyle(
-                              color: Colors.black, fontWeight: FontWeight.bold),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: kPrimaryColor,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          minimumSize: const Size(double.infinity, 45),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -144,28 +130,21 @@ class AboutContactScreen extends StatelessWidget {
     );
   }
 
-  Widget _infoCard(IconData icon, String titre, String valeur) {
+  Widget _infoCard(IconData icon, String title, String value) {
     return Container(
-      width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: kSurfaceColor, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: kSurfaceColor, borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: [
-          Icon(icon, color: kPrimaryColor, size: 22),
-          const SizedBox(width: 14),
+          Icon(icon, color: kPrimaryColor),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(titre,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 const SizedBox(height: 4),
-                Text(valeur,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14)),
+                Text(value, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
               ],
             ),
           )
@@ -199,14 +178,8 @@ class AboutContactScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: Colors.white)),
-                    Text(subtitle,
-                        style:
-                            const TextStyle(color: Colors.grey, fontSize: 13)),
+                    Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white)),
+                    Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 13)),
                   ],
                 ),
               ),
