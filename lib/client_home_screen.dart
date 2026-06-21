@@ -6,6 +6,7 @@ import 'client_menu_screen.dart';
 import 'client_orders_screen.dart';
 import 'constants.dart';
 import 'notification_service.dart';
+import 'widgets/developer_contact_button.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   const ClientHomeScreen({super.key});

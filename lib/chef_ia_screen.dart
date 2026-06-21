@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'branding_service.dart';
 import 'constants.dart';
 import 'gemini_service.dart';
+import 'widgets/developer_contact_button.dart';
 
 class ChefIaScreen extends StatefulWidget {
   const ChefIaScreen({super.key});

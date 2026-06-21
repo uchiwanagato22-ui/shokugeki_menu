@@ -11,6 +11,8 @@ import 'livreur_dashboard_screen.dart';
 import 'restaurant_workflows.dart'; 
 import 'default_menu_plats.dart'; 
 import 'notification_service.dart'; // Importation de ton service de notification
+import 'chef_ia_screen.dart';
+import 'widgets/developer_contact_button.dart';
 
 const Color kPrimaryColor = Color(0xFF2196F3); 
 const Color kBackgroundColor = Color(0xFF090A0F);
@@ -229,7 +231,7 @@ class _ClientMainScreenState extends State<ClientMainScreen> {
   final List<Widget> _pages = [
     const MenuClientPage(),
     const Center(child: Text("Vos Commandes s'afficheront ici", style: TextStyle(color: Colors.white54))),
-    const ChefIAPage(),
+    const ChefIaScreen(),
     const AboutContactPage(),
   ];
 
@@ -412,5 +414,3 @@ class AboutContactPage extends StatelessWidget {
     );
   }
 }
-
-class ChefIAPage exte

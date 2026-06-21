@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'branding_service.dart';
 import 'constants.dart';
 import 'widgets/restaurant_logo.dart';
+import 'widgets/developer_contact_button.dart';
 
 class AboutContactScreen extends StatelessWidget {
   const AboutContactScreen({super.key});
