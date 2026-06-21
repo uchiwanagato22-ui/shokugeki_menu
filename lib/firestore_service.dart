@@ -26,7 +26,7 @@ class FirestoreService {
         'total': total,
         'mode_paiement': typePaiement,
         'ref_transaction': transactionId ?? '-',
-        'statut': 'En attente', // Statut initial capté par le caissier
+        'statut': 'En attente',
         'adresse': adresseDetails,
         'latitude': latitude,
         'longitude': longitude,
@@ -36,21 +36,34 @@ class FirestoreService {
         'date_commande': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      throw Exception("Erreur lors de l'envoi de la commande : $e");
+      throw Exception("Erreur commande : $e");
     }
   }
 
-  // --- OBTENIR LE MENU EN TEMPS RÉEL ---
+
+  // --- MENU TEMPS RÉEL (UTILISÉ PAR CLIENT) ---
+  Stream<QuerySnapshot<Map<String, dynamic>>> recupererMenu() {
+    return _db
+        .collection('menu')
+        .orderBy('nom')
+        .snapshots();
+  }
+
+
+  // --- VERSION LISTE (AUTRES ÉCRANS) ---
   Stream<List<Map<String, dynamic>>> obtenirLeMenu() {
     return _db.collection('menu').orderBy('nom').snapshots().map(
-          (snapshot) => snapshot.docs
-              .map((doc) => {
-                    'id': doc.id,
-                    ...doc.data(),
-                  })
-              .toList(),
-        );
+      (snapshot) {
+        return snapshot.docs.map((doc) {
+          return {
+            'id': doc.id,
+            ...doc.data(),
+          };
+        }).toList();
+      },
+    );
   }
+
 
   // --- AJOUTER UN PLAT ---
   Future<void> ajouterPlat({
@@ -61,20 +74,22 @@ class FirestoreService {
     required String image,
     required bool disponible,
   }) async {
-    try {
-      await _db.collection('menu').add({
-        'nom': nom,
-        'description': description,
-        'prix': prix,
-        'categorie': categorie,
-        'image': image,
-        'disponible': disponible,
-        'date_creation': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      throw Exception("Erreur lors de l'ajout du plat : $e");
-    }
+
+    await _db.collection('menu').add({
+
+      'nom': nom,
+      'description': description,
+      'prix': prix,
+      'categorie': categorie,
+      'image': image,
+      'disponible': disponible,
+      'date_creation': FieldValue.serverTimestamp(),
+
+    });
+
   }
+
+
 
   // --- MODIFIER UN PLAT ---
   Future<void> modifierPlat({
@@ -86,35 +101,48 @@ class FirestoreService {
     required String image,
     required bool disponible,
   }) async {
-    try {
-      await _db.collection('menu').doc(id).update({
-        'nom': nom,
-        'description': description,
-        'prix': prix,
-        'categorie': categorie,
-        'image': image,
-        'disponible': disponible,
-      });
-    } catch (e) {
-      throw Exception("Erreur lors de la modification du plat : $e");
-    }
+
+
+    await _db.collection('menu').doc(id).update({
+
+      'nom': nom,
+      'description': description,
+      'prix': prix,
+      'categorie': categorie,
+      'image': image,
+      'disponible': disponible,
+
+    });
+
+
   }
+
+
 
   // --- SUPPRIMER UN PLAT ---
   Future<void> supprimerPlat(String id) async {
-    try {
-      await _db.collection('menu').doc(id).delete();
-    } catch (e) {
-      throw Exception("Erreur lors de la suppression du plat : $e");
-    }
+
+    await _db.collection('menu').doc(id).delete();
+
   }
 
-  // --- BASCULER LA DISPONIBILITÉ (Retirer/Afficher) ---
-  Future<void> basculerDisponibilite(String id, bool disponible) async {
-    try {
-      await _db.collection('menu').doc(id).update({'disponible': disponible});
-    } catch (e) {
-      throw Exception("Erreur lors du basculement de disponibilité : $e");
-    }
+
+
+  // --- DISPONIBILITÉ ---
+  Future<void> basculerDisponibilite(
+      String id,
+      bool disponible
+  ) async {
+
+    await _db
+        .collection('menu')
+        .doc(id)
+        .update({
+
+      'disponible': disponible
+
+    });
+
   }
+
 }
