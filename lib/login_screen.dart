@@ -6,7 +6,7 @@ import 'caissier_dashboard_screen.dart';
 import 'cuisine_screen.dart';
 import 'directeur_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
-import 'developer_contact_button.dart';
+import 'widgets/developer_contact_button.dart';
 import 'constants.dart'; // Pour kPrimaryColor, kBackgroundColor, kSurfaceColor
 
 class LoginScreen extends StatefulWidget {

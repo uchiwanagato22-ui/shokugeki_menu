@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
-import 'developer_contact_button.dart';
+import 'widgets/developer_contact_button.dart';
 import 'constants.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -107,7 +107,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
             const SizedBox(height: 30),
-            DeveloperContactButton(),
+            const DeveloperContactButton(),
           ],
         ),
       ),

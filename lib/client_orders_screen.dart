@@ -143,7 +143,7 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
                     if (statut == 'livree' && note == null) ...[
                       const SizedBox(height: 12),
                       GestureDetector(
-                        onTap: () => _ouvrirNotation(doc.id),
+                        onTap: () => _afficherNotation(doc.id),
                         child: const Text("Toucher ici pour laisser une note ⭐", 
                             style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 13)),
                       ),
