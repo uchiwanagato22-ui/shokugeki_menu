@@ -45,7 +45,7 @@ class _CaissierDashboardScreenState extends State<CaissierDashboardScreen> {
           stream: _db
               .collection('commandes')
               .where('statut', isEqualTo: 'en_attente')
-              .orderBy('date_commande', descending: true)
+              .orderBy('date_creation', descending: true)
               .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
