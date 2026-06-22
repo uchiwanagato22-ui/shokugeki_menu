@@ -10,7 +10,7 @@ import 'cuisine_screen.dart';
 import 'directeur_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
 import 'widgets/developer_contact_button.dart';
-import 'constants.dart'; // Import pour kPrimaryColor, kBackgroundColor, kSurfaceColor
+import 'constants.dart'; 
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -40,38 +40,39 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   @override
   void dispose() {
+    _tabController?.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _codeController.dispose();
-    _tabController?.dispose();
     super.dispose();
   }
 
-  // Connexion du Client (Email / Password standard)
-  Future<void> _connexionClient() async {
-    if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+  void _connexionClient() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Veuillez remplir les informations de l'espace client.")),
+        const SnackBar(content: Text("Veuillez remplir tous les champs clients")),
       );
       return;
     }
 
     setState(() => _isLoading = true);
+
     try {
-      UserCredential? creds = await _authService.connecterClient(
+      UserCredential? userCredential = await _authService.connecterClient(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
-      if (creds != null && mounted) {
+
+      if (userCredential != null && mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const ClientHomeScreen()),
+          MaterialPageRoute(builder: (_) => const ClientHomeScreen()),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erreur client : $e")),
+          SnackBar(content: Text("Erreur de connexion client : ${e.toString()}")),
         );
       }
     } finally {
@@ -79,11 +80,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     }
   }
 
-  // Connexion du Personnel (Code secret à 4 chiffres + Sauvegarde locale SharedPreferences)
-  Future<void> _connexionPersonnel() async {
-    if (_codeController.text.trim().isEmpty) {
+  void _connexionPersonnel() async {
+    if (_codeController.text.isEmpty || _codeController.text.length < 4) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Veuillez entrer votre code secret.")),
+        const SnackBar(content: Text("Veuillez saisir un code secret valide à 4 chiffres")),
       );
       return;
     }
@@ -91,45 +91,52 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     setState(() => _isLoading = true);
 
     try {
-      // Vérification du code secret à travers l'AuthService
       String? role = await _authService.connecterPersonnel(_codeController.text.trim());
 
       if (role != null) {
-        // CORRECTION MAJEURE : Sauvegarde locale du rôle trouvé
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('personnel_role', role);
+        // --- PERSISTANCE DU PERSONNEL SAUVEGARDÉE DANS LE STOCKAGE LOCAL ---
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('staff_role', role);
 
         if (!mounted) return;
 
-        // Choix de la redirection exacte selon le rôle
-        Widget dashboard;
-        if (role == 'directeur') {
-          dashboard = const DirectorDashboardScreen();
-        } else if (role == 'caissier') {
-          dashboard = const CaissierDashboardScreen();
-        } else if (role == 'livreur') {
-          dashboard = const LivreurDashboardScreen();
-        } else if (role == 'cuisine') {
-          dashboard = const CuisineScreen();
-        } else {
-          throw Exception("Rôle inconnu trouvé");
+        // Redirection ciblée selon le rôle renvoyé par la base Firestore
+        Widget destinationScreen;
+        switch (role) {
+          case 'directeur':
+            destinationScreen = const DirecteurDashboardScreen();
+            break;
+          case 'caissier':
+            destinationScreen = const CaissierDashboardScreen();
+            break;
+          case 'livreur':
+            destinationScreen = const LivreurDashboardScreen();
+            break;
+          case 'cuisine':
+            destinationScreen = const CuisineScreen();
+            break;
+          default:
+            destinationScreen = const LoginScreen();
+            break;
         }
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => dashboard),
+          MaterialPageRoute(builder: (_) => destinationScreen),
         );
       } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Code secret incorrect.")),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Code secret incorrect ou personnel introuvable")),
+          );
+        }
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erreur connexion personnel : $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur système lors de la connexion : ${e.toString()}")),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -140,10 +147,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     return Scaffold(
       backgroundColor: kBackgroundColor,
       appBar: AppBar(
+        title: const Text("Shokugeki Menu 🍣", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: kSurfaceColor,
-        title: const Text(kAppName, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        centerTitle: true,
-        elevation: 0,
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: kPrimaryColor,
@@ -160,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           : TabBarView(
               controller: _tabController,
               children: [
-                // --- DESIGN DE L'ONGLET CLIENT ---
+                // PANNEAU CLIENT
                 SingleChildScrollView(
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
@@ -169,14 +174,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       const SizedBox(height: 20),
                       const Text(
                         "Espace Client",
-                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                       TextField(
                         controller: _emailController,
                         style: const TextStyle(color: Colors.white),
                         decoration: const InputDecoration(
-                          labelText: "Adresse E-mail",
+                          labelText: "Adresse Email",
                           labelStyle: TextStyle(color: Colors.grey),
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.email, color: Colors.grey),
@@ -211,19 +216,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           onPressed: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                              MaterialPageRoute(builder: (_) => const RegisterScreen()),
                             );
                           },
                           child: const Text("Créer un compte client gratuit", style: TextStyle(color: kPrimaryColor)),
                         ),
                       ),
-                      const SizedBox(height: 40),
-                      const Center(child: DeveloperContactButton()),
                     ],
                   ),
                 ),
 
-                // --- DESIGN DE L'ONGLET PERSONNEL (MODIFIÉ) ---
+                // PANNEAU PERSONNEL
                 SingleChildScrollView(
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
@@ -231,8 +234,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     children: [
                       const SizedBox(height: 20),
                       const Text(
-                        "Accès Équipe",
-                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                        "Espace Restaurant (Staff)",
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                       const SizedBox(height: 30),
                       TextField(
