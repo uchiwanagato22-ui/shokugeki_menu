@@ -60,16 +60,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
 
     // CONDITION 1 : Si un membre du personnel s'est connecté auparavant (Persistance)
+    // CORRIGÉ : Plus aucun 'const' ici pour éviter le crash de compilation finale !
     if (_cachedStaffRole != null) {
-      switch (_cachedStaffRole) {
+      switch (_cachedStaffRole!.trim().toLowerCase()) {
         case 'directeur':
-          return const DirecteurDashboardScreen();
+          return DirecteurDashboardScreen();
         case 'caissier':
-          return const CaissierDashboardScreen();
+          return CaissierDashboardScreen();
         case 'livreur':
-          return const LivreurDashboardScreen();
+          return LivreurDashboardScreen();
         case 'cuisine':
-          return const CuisineScreen();
+          return CuisineScreen();
         default:
           return const LoginScreen();
       }

@@ -43,7 +43,7 @@ void main() async {
   runApp(const ShokugekiMenuApp());
 }
 
-/// Widget Racine configurant toute l'identité graphique Cyber-Premium (Néon Futursit)
+/// Widget Racine configurant toute l'identité graphique Cyber-Premium (Néon Futuriste)
 /// et définissant l'écran de démarrage sécurisé de l'écosystème Shokugeki.
 class ShokugekiMenuApp extends StatelessWidget {
   const ShokugekiMenuApp({super.key});
@@ -149,7 +149,6 @@ class _AppScreenWrapperState extends State<AppScreenWrapper> {
   }
 
   /// Appelle la base Firestore pour valider si l'application est activée.
-  /// Empêche tout contournement de sécurité si le restaurant n'a pas réglé ses accès.
   Future<void> _controlerActivationApplication() async {
     try {
       final statut = await _authService.verifierStatutApplication();
@@ -174,7 +173,6 @@ class _AppScreenWrapperState extends State<AppScreenWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Écran de chargement initial pendant la synchronisation avec Firebase
     if (_isCheckingStatus) {
       return const Scaffold(
         body: Center(
@@ -199,23 +197,18 @@ class _AppScreenWrapperState extends State<AppScreenWrapper> {
       );
     }
 
-    // 2. Si l'application a été désactivée à distance, affichage de l'écran de blocage
     if (!_isAppActive) {
       return AppBlockScreen(message: _blockingMessage);
     }
 
-    // 3. Si l'application est valide et active, redirection vers la passerelle d'authentification
     return const AuthGatewayRouter();
   }
 }
 
-/// Écran d'interdiction affiché de force lorsque l'application est désactivée par l'administrateur.
-/// Propose un design soigné et un bouton d'action direct vers Nagato (le développeur).
 class AppBlockScreen extends StatelessWidget {
   final String message;
   const AppBlockScreen({super.key, required this.message});
 
-  /// Permet d'ouvrir l'application externe WhatsApp pour l'assistance technique
   Future<void> _contacterNagato() async {
     final cleanPhone = kDeveloperPhone.replaceAll(RegExp(r'[^\d+]'), '');
     final customText = Uri.encodeComponent("Bonjour Nagato, je vous contacte concernant la suspension de mon application Shokugeki Menu.");
@@ -237,7 +230,6 @@ class AppBlockScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(),
-              // Icône d'avertissement Luminescente Cyber-Néon
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -253,7 +245,6 @@ class AppBlockScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Colors.white),
               ),
               const SizedBox(height: 16),
-              // Bloc d'affichage contenant le motif de suspension configuré sur Firestore
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -273,7 +264,6 @@ class AppBlockScreen extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              // Bouton d'urgence pour contacter directement ton support
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -293,8 +283,6 @@ class AppBlockScreen extends StatelessWidget {
   }
 }
 
-/// Passerelle d'authentification et de Routage Dynamique.
-/// Combine la détection des comptes Firebase (Clients) et SharedPreferences (Personnel).
 class AuthGatewayRouter extends StatefulWidget {
   const AuthGatewayRouter({super.key});
 
@@ -312,8 +300,6 @@ class _AuthGatewayRouterState extends State<AuthGatewayRouter> {
     _chargerSessionPersonnelDepuisLeCache();
   }
 
-  /// Vérifie si un membre du personnel s'est déjà connecté auparavant via son code secret.
-  /// Évite de forcer le personnel à retaper le code PIN à chaque réouverture de l'application.
   Future<void> _chargerSessionPersonnelDepuisLeCache() async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -340,52 +326,44 @@ class _AuthGatewayRouterState extends State<AuthGatewayRouter> {
       return const Scaffold(body: Center(child: CircularProgressIndicator(color: kPrimaryColor)));
     }
 
-    // PRIMAUTÉ AU PERSONNEL : Si une session staff est mémorisée localement, on l'envoie vers son tableau de bord
     if (_cachedStaffRole != null) {
       return _aiguillerVersEcranPersonnel(_cachedStaffRole!);
     }
 
-    // STRATÉGIE CLIENTS : Si aucun staff n'est détecté, on écoute le flux de connexion FirebaseAuth standard
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // En cas d'erreur de connexion Firebase, redirection vers le login par sécurité
         if (snapshot.hasError) {
           return const LoginScreen();
         }
 
-        // Si le client est connecté avec succès via Firebase Auth
         if (snapshot.hasData && snapshot.data != null) {
           return const ClientHomeScreen();
         }
 
-        // Par défaut, si personne n'est connecté, affichage de l'écran d'accueil d'authentification général
         return const LoginScreen();
       },
     );
   }
 
   /// Fonction d'aiguillage interne renvoyant le widget d'écran spécifique
-  /// correspondant exactement au rôle du membre du personnel authentifié.
+  /// CORRIGÉ : Plus aucun mot-clé 'const' ici et correction du nom 'DirecteurDashboardScreen'
   Widget _aiguillerVersEcranPersonnel(String role) {
-    switch (role) {
+    switch (role.trim().toLowerCase()) {
       case 'directeur':
-        return const DirectorDashboardScreen();
+        return DirecteurDashboardScreen();
       case 'caissier':
-        return const CaissierDashboardScreen();
+        return CaissierDashboardScreen();
       case 'livreur':
-        return const LivreurDashboardScreen();
+        return LivreurDashboardScreen();
       case 'cuisine':
-        return const CuisineScreen();
+        return CuisineScreen();
       default:
-        // En cas de rôle corrompu ou inconnu, retour forcé à la sécurité
         return const LoginScreen();
     }
   }
 }
 
-/// Écran optionnel d'affichage d'informations institutionnelles complémentaires
-/// utile pour le débogage ou comme vue de secours dans ton application.
 class ShokugekiRestaurantInfoView extends StatelessWidget {
   const ShokugekiRestaurantInfoView({super.key});
 
