@@ -100,20 +100,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
         if (!mounted) return;
 
-        // Redirection ciblée selon le rôle renvoyé par la base Firestore
+        // Redirection ciblée selon le rôle renvoyé par la base Firestore (SANS les const)
         Widget destinationScreen;
         switch (role) {
           case 'directeur':
-            destinationScreen = const DirecteurDashboardScreen();
+            destinationScreen = DirecteurDashboardScreen();
             break;
           case 'caissier':
-            destinationScreen = const CaissierDashboardScreen();
+            destinationScreen = CaissierDashboardScreen();
             break;
           case 'livreur':
-            destinationScreen = const LivreurDashboardScreen();
+            destinationScreen = LivreurDashboardScreen();
             break;
           case 'cuisine':
-            destinationScreen = const CuisineScreen();
+            destinationScreen = CuisineScreen();
             break;
           default:
             destinationScreen = const LoginScreen();
