@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'auth_service.dart';
 import 'register_screen.dart';
 import 'client_home_screen.dart';
@@ -7,7 +10,7 @@ import 'cuisine_screen.dart';
 import 'directeur_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
 import 'widgets/developer_contact_button.dart';
-import 'constants.dart'; // Pour kPrimaryColor, kBackgroundColor, kSurfaceColor
+import 'constants.dart'; // Import pour kPrimaryColor, kBackgroundColor, kSurfaceColor
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -20,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   TabController? _tabController;
   final AuthService _authService = AuthService();
 
-  // Contrôleurs Client (Email et Mot de passe uniquement)
+  // Contrôleurs Client (Email et Mot de passe)
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -44,84 +47,91 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  // --- CONNEXION CLIENT (EMAIL / MOT DE PASSE) ---
+  // Connexion du Client (Email / Password standard)
   Future<void> _connexionClient() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
+    if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Veuillez remplir votre email et mot de passe.")),
+        const SnackBar(content: Text("Veuillez remplir les informations de l'espace client.")),
       );
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      final res = await _authService.connecterClient(email, password);
-      if (res != null && res.user != null) {
-        // Redirection vers l'accueil client
+      UserCredential? creds = await _authService.connecterClient(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+      if (creds != null && mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const ClientHomeScreen()),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erreur de connexion : ${e.toString()}")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur client : $e")),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // --- CONNEXION PERSONNEL (CODE SECRET 4 CHIFFRES) ---
+  // Connexion du Personnel (Code secret à 4 chiffres + Sauvegarde locale SharedPreferences)
   Future<void> _connexionPersonnel() async {
-    final code = _codeController.text.trim();
-    if (code.isEmpty || code.length != 4) {
+    if (_codeController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Le code secret doit contenir exactement 4 chiffres.")),
+        const SnackBar(content: Text("Veuillez entrer votre code secret.")),
       );
       return;
     }
 
     setState(() => _isLoading = true);
+
     try {
-      String? role = await _authService.connecterPersonnel(code);
+      // Vérification du code secret à travers l'AuthService
+      String? role = await _authService.connecterPersonnel(_codeController.text.trim());
+
       if (role != null) {
-        Widget redirection;
-        switch (role.toLowerCase()) {
-          case 'directeur':
-            redirection = const DirectorDashboardScreen();
-            break;
-          case 'caissier':
-            redirection = const CaissierDashboardScreen();
-            break;
-          case 'cuisine':
-            redirection = const CuisineScreen(); // À vérifier si le nom correspond
-            break;
-          case 'livreur':
-            redirection = const LivreurDashboardScreen();
-            break;
-          default:
-            throw "Rôle inconnu.";
+        // CORRECTION MAJEURE : Sauvegarde locale du rôle trouvé
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('personnel_role', role);
+
+        if (!mounted) return;
+
+        // Choix de la redirection exacte selon le rôle
+        Widget dashboard;
+        if (role == 'directeur') {
+          dashboard = const DirectorDashboardScreen();
+        } else if (role == 'caissier') {
+          dashboard = const CaissierDashboardScreen();
+        } else if (role == 'livreur') {
+          dashboard = const LivreurDashboardScreen();
+        } else if (role == 'cuisine') {
+          dashboard = const CuisineScreen();
+        } else {
+          throw Exception("Rôle inconnu trouvé");
         }
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => redirection),
+          MaterialPageRoute(builder: (context) => dashboard),
         );
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Code secret incorrect.")),
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erreur d'authentification : $e")),
+        SnackBar(content: Text("Erreur connexion personnel : $e")),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -131,19 +141,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       backgroundColor: kBackgroundColor,
       appBar: AppBar(
         backgroundColor: kSurfaceColor,
+        title: const Text(kAppName, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        centerTitle: true,
         elevation: 0,
-        title: const Text(
-          "Shokugeki Menu 🍳",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: kPrimaryColor,
           labelColor: kPrimaryColor,
           unselectedLabelColor: Colors.grey,
-          indicatorColor: kPrimaryColor,
           tabs: const [
-            Tab(icon: Icon(Icons.shopping_bag), text: "Espace Client"),
-            Tab(icon: Icon(Icons.badge), text: "Personnel Resto"),
+            Tab(icon: Icon(Icons.person), text: "Client"),
+            Tab(icon: Icon(Icons.badge), text: "Personnel"),
           ],
         ),
       ),
@@ -152,41 +160,40 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           : TabBarView(
               controller: _tabController,
               children: [
-                // --- ONGLET 1 : ESPACE CLIENT ---
+                // --- DESIGN DE L'ONGLET CLIENT ---
                 SingleChildScrollView(
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 20),
                       const Text(
-                        "Connectez-vous pour commander",
-                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        "Espace Client",
+                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 30),
-                      // Champ Email
+                      const SizedBox(height: 24),
                       TextField(
                         controller: _emailController,
                         style: const TextStyle(color: Colors.white),
-                        keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
-                          labelText: "Adresse Email",
+                          labelText: "Adresse E-mail",
                           labelStyle: TextStyle(color: Colors.grey),
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.email, color: Colors.grey),
                         ),
+                        keyboardType: TextInputType.emailAddress,
                       ),
                       const SizedBox(height: 16),
-                      // Champ Mot de passe
                       TextField(
                         controller: _passwordController,
                         style: const TextStyle(color: Colors.white),
-                        obscureText: true,
                         decoration: const InputDecoration(
                           labelText: "Mot de passe",
                           labelStyle: TextStyle(color: Colors.grey),
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.lock, color: Colors.grey),
                         ),
+                        obscureText: true,
                       ),
                       const SizedBox(height: 24),
                       SizedBox(
@@ -195,37 +202,37 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         child: ElevatedButton(
                           onPressed: _connexionClient,
                           style: ElevatedButton.styleFrom(backgroundColor: kPrimaryColor),
-                          child: const Text("Se connecter", style: TextStyle(color: Colors.white, fontSize: 16)),
+                          child: const Text("Se connecter", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const RegisterScreen()),
-                          );
-                        },
-                        child: const Text(
-                          "Pas encore de compte ? Inscrivez-vous gratuitement",
-                          style: TextStyle(color: kPrimaryColor),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                            );
+                          },
+                          child: const Text("Créer un compte client gratuit", style: TextStyle(color: kPrimaryColor)),
                         ),
                       ),
                       const SizedBox(height: 40),
-                      const DeveloperContactButton(),
+                      const Center(child: DeveloperContactButton()),
                     ],
                   ),
                 ),
 
-                // --- ONGLET 2 : PERSONNEL RESTO ---
+                // --- DESIGN DE L'ONGLET PERSONNEL (MODIFIÉ) ---
                 SingleChildScrollView(
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 20),
                       const Text(
-                        "Accès sécurisé équipe",
-                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        "Accès Équipe",
+                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 30),
                       TextField(
@@ -252,7 +259,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         ),
                       ),
                       const SizedBox(height: 60),
-                      const DeveloperContactButton(),
+                      const Center(child: DeveloperContactButton()),
                     ],
                   ),
                 ),

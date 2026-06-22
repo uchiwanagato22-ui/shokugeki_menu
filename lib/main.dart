@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Ajouté pour la persistance de session
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// --- IMPORTS RÉELS ET VÉRIFIÉS ---
+// --- IMPORTS RÉELS ET VÉRIFIÉS DE TON PROJET ---
 import 'directeur_dashboard_screen.dart'; 
 import 'caissier_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
@@ -15,297 +16,437 @@ import 'notification_service.dart';
 import 'cuisine_screen.dart';
 import 'chef_ia_screen.dart';
 import 'login_screen.dart';
+import 'auth_service.dart'; 
+import 'client_home_screen.dart';
+import 'constants.dart';
 
-const Color kPrimaryColor = Color(0xFF2196F3); 
-const Color kBackgroundColor = Color(0xFF090A0F);
-const Color kSurfaceColor = Color(0xFF14161D);
-const Color kAccentColor = Color(0xFFFFD700);
-const String kAppName = "Shokugeki Menu";
-const String kDeveloperPhone = "+22232652300";
-
+/// Handler global pour les notifications Firebase reçues lorsque l'application
+/// est en arrière-plan ou totalement fermée.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  print("Notification reçue en arrière-plan : ${message.notification?.title}");
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  print("Notification détectée en arrière-plan : ${message.notification?.title}");
 }
 
 void main() async {
+  // Assure l'initialisation des bindings Flutter avant toute configuration asynchrone
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialisation obligatoire de Firebase
+  await Firebase.initializeApp();
+  
+  // Configuration du handler de notifications d'arrière-plan
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  
+  // Lancement de l'application racine
   runApp(const ShokugekiMenuApp());
 }
 
+/// Widget Racine configurant toute l'identité graphique Cyber-Premium (Néon Futursit)
+/// et définissant l'écran de démarrage sécurisé de l'écosystème Shokugeki.
 class ShokugekiMenuApp extends StatelessWidget {
   const ShokugekiMenuApp({super.key});
-
-  Future<FirebaseApp> _initialiserConfigurationComplete() async {
-    FirebaseApp app = await Firebase.initializeApp().timeout(
-      const Duration(seconds: 8),
-      onTimeout: () => throw Exception("Firebase ne répond pas."),
-    );
-
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    await NotificationService.instance.init();
-
-    final menuSnapshot = await FirebaseFirestore.instance.collection('menu').limit(1).get();
-    if (menuSnapshot.docs.isEmpty) {
-      for (var plat in kPlatsExempleMauritanie) {
-        await FirebaseFirestore.instance.collection('menu').add({
-          'nom': plat['nom'],
-          'description': plat['description'],
-          'prix': plat['prix'],
-          'categorie': plat['categorie'],
-          'image': plat['image'],
-          'disponible': true,
-          'date_creation': FieldValue.serverTimestamp(),
-        });
-      }
-    }
-    
-    return app;
-  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Shokugeki Menu',
+      title: kAppName,
       debugShowCheckedModeBanner: false,
+      
+      // CONFIGURATION DU THÈME ULTRA-PREMIUM CYBER-NÉON
       theme: ThemeData(
-        scaffoldBackgroundColor: kBackgroundColor,
+        brightness: Brightness.dark,
         primaryColor: kPrimaryColor,
+        scaffoldBackgroundColor: kBackgroundColor,
+        cardColor: kSurfaceColor,
+        
+        // Style global des Textes adaptés au design futuriste
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+          titleLarge: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          bodyLarge: TextStyle(color: Colors.white70, fontSize: 16, height: 1.4),
+          bodyMedium: TextStyle(color: Colors.grey, fontSize: 14),
+        ),
+        
+        // Personnalisation des boutons avec lueurs et arrondis cyber
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: kPrimaryColor,
+            foregroundColor: Colors.white,
+            elevation: 4,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5),
+          ),
+        ),
+        
+        // Style des champs de saisie de texte (Inputs pour formulaires et codes PIN)
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: kSurfaceColor,
+          labelStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+          prefixIconColor: kPrimaryColor,
+          suffixIconColor: kPrimaryColor,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.05)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.05)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: kPrimaryColor, width: 1.5),
+          ),
+        ),
+        
+        // Style personnalisé des barres d'applications
+        appBarTheme: const AppBarTheme(
+          backgroundColor: kSurfaceColor,
+          elevation: 0,
+          centerTitle: true,
+          iconTheme: IconThemeData(color: Colors.white),
+          titleTextStyle: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        
         colorScheme: const ColorScheme.dark(
           primary: kPrimaryColor,
+          secondary: kSecondaryColor,
           surface: kSurfaceColor,
+          background: kBackgroundColor,
         ),
       ),
-      home: FutureBuilder(
-        future: _initialiserConfigurationComplete(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done && !snapshot.hasError) {
-            // Écoute en temps réel de l'état d'authentification pour éviter la déconnexion automatique
-            return StreamBuilder<User?>(
-              stream: FirebaseAuth.instance.authStateChanges(),
-              builder: (context, authSnapshot) {
-                if (authSnapshot.connectionState == ConnectionState.active) {
-                  User? user = authSnapshot.data;
-                  if (user == null) {
-                    return const LoginScreen();
-                  } else {
-                    return const ClientMainScreen();
-                  }
-                }
-                return const Scaffold(
-                  backgroundColor: kBackgroundColor,
-                  body: Center(child: CircularProgressIndicator(color: kPrimaryColor)),
-                );
-              },
-            );
-          }
-          if (snapshot.hasError) {
-            return const Scaffold(
-              backgroundColor: kBackgroundColor,
-              body: Center(child: Text("Erreur d'initialisation Firebase", style: TextStyle(color: Colors.red))),
-            );
-          }
-          return const Scaffold(
-            backgroundColor: kBackgroundColor,
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.restaurant_menu_rounded, size: 80, color: kPrimaryColor),
-                  SizedBox(height: 24),
-                  CircularProgressIndicator(color: kPrimaryColor),
-                ],
+      
+      // L'application démarre directement sur le Wrapper de Contrôle de Sécurité Globale
+      home: const AppScreenWrapper(),
+    );
+  }
+}
+
+/// Écran de contrôle centralisé. Responsable de deux tâches critiques :
+/// 1. Vérifier si l'administrateur a suspendu/bloqué l'accès à l'application dans Firestore.
+/// 2. Gérer le routage automatique et la persistance des sessions (Clients et Personnel).
+class AppScreenWrapper extends StatefulWidget {
+  const AppScreenWrapper({super.key});
+
+  @override
+  State<AppScreenWrapper> createState() => _AppScreenWrapperState();
+}
+
+class _AppScreenWrapperState extends State<AppScreenWrapper> {
+  final AuthService _authService = AuthService();
+  bool _isCheckingStatus = true;
+  bool _isAppActive = true;
+  String _blockingMessage = "Application temporairement inaccessible.";
+
+  @override
+  void initState() {
+    super.initState();
+    _controlerActivationApplication();
+  }
+
+  /// Appelle la base Firestore pour valider si l'application est activée.
+  /// Empêche tout contournement de sécurité si le restaurant n'a pas réglé ses accès.
+  Future<void> _controlerActivationApplication() async {
+    try {
+      final statut = await _authService.verifierStatutApplication();
+      if (mounted) {
+        setState(() {
+          _isAppActive = statut['is_active'] ?? false;
+          _blockingMessage = statut['message'] ?? "Application suspendue.";
+          _isCheckingStatus = false;
+        });
+      }
+    } catch (e) {
+      print("Erreur critique lors de la vérification du statut : $e");
+      if (mounted) {
+        setState(() {
+          _isAppActive = false;
+          _blockingMessage = "Impossible de se connecter aux serveurs de sécurité Shokugeki Menu.";
+          _isCheckingStatus = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Écran de chargement initial pendant la synchronisation avec Firebase
+    if (_isCheckingStatus) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: kSurfaceColor,
+                child: Icon(Icons.restaurant_menu_rounded, size: 40, color: kPrimaryColor),
               ),
-            ),
-          );
-        },
-      ),
-    );
+              SizedBox(height: 24),
+              CircularProgressIndicator(color: kPrimaryColor),
+              SizedBox(height: 16),
+              Text(
+                "Initialisation sécurisée...",
+                style: TextStyle(color: Colors.grey, fontSize: 13, letterSpacing: 0.5),
+              )
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 2. Si l'application a été désactivée à distance, affichage de l'écran de blocage
+    if (!_isAppActive) {
+      return AppBlockScreen(message: _blockingMessage);
+    }
+
+    // 3. Si l'application est valide et active, redirection vers la passerelle d'authentification
+    return const AuthGatewayRouter();
   }
 }
 
-class ClientMainScreen extends StatefulWidget {
-  const ClientMainScreen({super.key});
+/// Écran d'interdiction affiché de force lorsque l'application est désactivée par l'administrateur.
+/// Propose un design soigné et un bouton d'action direct vers Nagato (le développeur).
+class AppBlockScreen extends StatelessWidget {
+  final String message;
+  const AppBlockScreen({super.key, required this.message});
 
-  @override
-  State<ClientMainScreen> createState() => _ClientMainScreenState();
-}
-
-class _ClientMainScreenState extends State<ClientMainScreen> {
-  int _currentIndex = 0;
-
-  final List<Widget> _pages = [
-    const MenuClientPage(),
-    const Center(child: Text("Mes Commandes 📦", style: TextStyle(color: Colors.white, fontSize: 18))),
-    const ChefIaScreen(),
-    const AboutContactPage(),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBackgroundColor,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: kSurfaceColor,
-        indicatorColor: kPrimaryColor.withOpacity(0.2),
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.restaurant_menu, color: Colors.white), label: "Menu"),
-          NavigationDestination(icon: Icon(Icons.receipt_long, color: Colors.white), label: "Commandes"),
-          NavigationDestination(icon: Icon(Icons.psychology, color: Colors.white), label: "Chef IA"),
-          NavigationDestination(icon: Icon(Icons.info_outline, color: Colors.white), label: "Infos"),
-        ],
-      ),
-    );
-  }
-}
-
-class MenuClientPage extends StatelessWidget {
-  const MenuClientPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Le Menu Shokugeki 🍳", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: kSurfaceColor,
-        elevation: 0,
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('menu').orderBy('nom').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(child: Text("Erreur de chargement du menu.", style: TextStyle(color: Colors.white)));
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: kPrimaryColor));
-          }
-
-          final docs = snapshot.data?.docs ?? [];
-          if (docs.isEmpty) {
-            return const Center(child: Text("Aucun plat disponible pour le moment.", style: TextStyle(color: Colors.grey)));
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final plat = docs[index].data() as Map<String, dynamic>;
-              final bool disponible = plat['disponible'] ?? true;
-
-              if (!disponible) return const SizedBox.shrink();
-
-              return Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: kSurfaceColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: plat['image'] != null && plat['image'].toString().startsWith('http')
-                          ? Image.network(plat['image'], width: 80, height: 80, fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => 
-                                  Container(width: 80, height: 80, color: Colors.grey[900], child: const Icon(Icons.fastfood, color: Colors.grey)))
-                          : Container(width: 80, height: 80, color: Colors.grey[900], child: const Icon(Icons.fastfood, color: Colors.grey)),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(plat['nom'] ?? 'Plat anonyme', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 4),
-                          Text(plat['description'] ?? '', style: const TextStyle(color: Colors.grey, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 8),
-                          Text("${plat['prix']} MRU", style: const TextStyle(color: kAccentColor, fontWeight: FontWeight.bold, fontSize: 14)),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add_shopping_cart, color: kPrimaryColor),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("${plat['nom']} ajouté au panier !")),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class AboutContactPage extends StatelessWidget {
-  const AboutContactPage({super.key});
-
-  Future<void> _lancerUrl(Uri url) async {
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      debugPrint("Impossible d'ouvrir : $url");
+  /// Permet d'ouvrir l'application externe WhatsApp pour l'assistance technique
+  Future<void> _contacterNagato() async {
+    final cleanPhone = kDeveloperPhone.replaceAll(RegExp(r'[^\d+]'), '');
+    final customText = Uri.encodeComponent("Bonjour Nagato, je vous contacte concernant la suspension de mon application Shokugeki Menu.");
+    final whatsappUri = Uri.parse("https://wa.me/${cleanPhone.replaceAll('+', '')}?text=$customText");
+    
+    if (!await launchUrl(whatsappUri, mode: LaunchMode.externalApplication)) {
+      debugPrint("Impossible de lancer l'application externe WhatsApp : $whatsappUri");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Contact & Infos 📍"), backgroundColor: Colors.transparent, elevation: 0),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const CircleAvatar(
-              radius: 45,
-              backgroundColor: kSurfaceColor,
-              child: Icon(Icons.restaurant_menu_rounded, size: 50, color: kPrimaryColor),
-            ),
-            const SizedBox(height: 16),
-            const Text("Shokugeki Restaurant", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 32),
-            _infoRow(Icons.location_on, "Adresse", "Nouakchott, Mauritanie"),
-            const SizedBox(height: 40),
-            ElevatedButton(
-              onPressed: () {
-                final whatsappUrl = Uri.parse("https://wa.me/$kDeveloperPhone");
-                _lancerUrl(whatsappUrl);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: kPrimaryColor),
-              child: const Text("Contacter Nagato"),
-            ),
-          ],
+      backgroundColor: const Color(0xFF06070B),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Spacer(),
+              // Icône d'avertissement Luminescente Cyber-Néon
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.05),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.redAccent.withOpacity(0.2), width: 1.5),
+                ),
+                child: const Icon(Icons.gpp_maybe_rounded, size: 70, color: Colors.redAccent),
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                "ACCÈS RESTREINT",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.black, letterSpacing: 1.5, color: Colors.white),
+              ),
+              const SizedBox(height: 16),
+              // Bloc d'affichage contenant le motif de suspension configuré sur Firestore
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: kSurfaceColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.03)),
+                ),
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white90, fontSize: 14, height: 1.5),
+                ),
+              ),
+              const Spacer(),
+              // Bouton d'urgence pour contacter directement ton support
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _contacterNagato,
+                  icon: const Icon(Icons.support_agent_rounded),
+                  label: const Text("CONTACTER LE SCRIPT / NAGATO"),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Passerelle d'authentification et de Routage Dynamique.
+/// Combine la détection des comptes Firebase (Clients) et SharedPreferences (Personnel).
+class AuthGatewayRouter extends StatefulWidget {
+  const AuthGatewayRouter({super.key});
+
+  @override
+  State<AuthGatewayRouter> createState() => _AuthGatewayRouterState();
+}
+
+class _AuthGatewayRouterState extends State<AuthGatewayRouter> {
+  String? _cachedStaffRole;
+  bool _isLoadingCache = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _chargerSessionPersonnelDepuisLeCache();
+  }
+
+  /// Vérifie si un membre du personnel s'est déjà connecté auparavant via son code secret.
+  /// Évite de forcer le personnel à retaper le code PIN à chaque réouverture de l'application.
+  Future<void> _chargerSessionPersonnelDepuisLeCache() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final savedRole = prefs.getString('staff_role');
+      if (mounted) {
+        setState(() {
+          _cachedStaffRole = savedRole;
+          _isLoadingCache = false;
+        });
+      }
+    } catch (e) {
+      print("Erreur de lecture du stockage de session persistant : $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingCache = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoadingCache) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator(color: kPrimaryColor)));
+    }
+
+    // PRIMAUTÉ AU PERSONNEL : Si une session staff est mémorisée localement, on l'envoie vers son tableau de bord
+    if (_cachedStaffRole != null) {
+      return _aiguillerVersEcranPersonnel(_cachedStaffRole!);
+    }
+
+    // STRATÉGIE CLIENTS : Si aucun staff n'est détecté, on écoute le flux de connexion FirebaseAuth standard
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // En cas d'erreur de connexion Firebase, redirection vers le login par sécurité
+        if (snapshot.hasError) {
+          return const LoginScreen();
+        }
+
+        // Si le client est connecté avec succès via Firebase Auth
+        if (snapshot.hasData && snapshot.data != null) {
+          return const ClientHomeScreen();
+        }
+
+        // Par défaut, si personne n'est connecté, affichage de l'écran d'accueil d'authentification général
+        return const LoginScreen();
+      },
+    );
+  }
+
+  /// Fonction d'aiguillage interne renvoyant le widget d'écran spécifique
+  /// correspondant exactement au rôle du membre du personnel authentifié.
+  Widget _aiguillerVersEcranPersonnel(String role) {
+    switch (role) {
+      case 'directeur':
+        return const DirectorDashboardScreen();
+      case 'caissier':
+        return const CaissierDashboardScreen();
+      case 'livreur':
+        return const LivreurDashboardScreen();
+      case 'cuisine':
+        return const CuisineScreen();
+      default:
+        // En cas de rôle corrompu ou inconnu, retour forcé à la sécurité
+        return const LoginScreen();
+    }
+  }
+}
+
+/// Écran optionnel d'affichage d'informations institutionnelles complémentaires
+/// utile pour le débogage ou comme vue de secours dans ton application.
+class ShokugekiRestaurantInfoView extends StatelessWidget {
+  const ShokugekiRestaurantInfoView({super.key});
+
+  Future<void> _lancerUrl(Uri url) async {
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      throw Exception("Action impossible pour le lien : $url");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: kBackgroundColor,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircleAvatar(
+                radius: 45,
+                backgroundColor: kSurfaceColor,
+                child: Icon(Icons.restaurant_menu_rounded, size: 50, color: kPrimaryColor),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Shokugeki Restaurant",
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 32),
+              _buildInfoRow(Icons.location_on, "Adresse", "Nouakchott, Mauritanie"),
+              const SizedBox(height: 12),
+              _buildInfoRow(Icons.developer_mode_rounded, "Développeur", "Nagato Business"),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                onPressed: () {
+                  final whatsappUrl = Uri.parse("https://wa.me/${kDeveloperPhone.replaceAll('+', '')}");
+                  _lancerUrl(whatsappUrl);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: kPrimaryColor),
+                child: const Text("Contacter Nagato", style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(icon, color: kPrimaryColor),
+        Icon(icon, color: kPrimaryColor, size: 20),
         const SizedBox(width: 16),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+            ),
           ],
-        )
+        ),
       ],
     );
   }

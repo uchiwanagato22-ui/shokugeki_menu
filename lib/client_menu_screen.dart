@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'constants.dart';
 import 'firestore_service.dart';
-import 'widgets/plat_detail_sheet.dart'; // Importation exacte ajustée à ton dossier widgets/
+import 'widgets/plat_detail_sheet.dart'; 
 
 class ClientMenuScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
@@ -28,10 +28,58 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
 
   Widget _placeholderImage() {
     return Container(
-      color: const Color(0xFF2A2A32),
-      width: 80,
-      height: 80,
-      child: const Icon(Icons.fastfood, color: Colors.grey, size: 36),
+      color: const Color(0xFF1E202C),
+      child: const Center(
+        child: Icon(Icons.fastfood, color: Colors.grey, size: 48),
+      ),
+    );
+  }
+
+  void _ajouterAuPanierDirect(Map<String, dynamic> plat) {
+    // Vérifie si l'article existe déjà pour incrémenter la quantité
+    final index = widget.cartItems.indexWhere((item) => item['id'] == plat['id']);
+    
+    if (index != -1) {
+      widget.cartItems[index]['quantite'] = (widget.cartItems[index]['quantite'] as int) + 1;
+    } else {
+      widget.cartItems.add({
+        'id': plat['id'],
+        'nom': plat['nom'],
+        'prix': (plat['prix'] as num).toDouble(),
+        'quantite': 1,
+        'categorie': plat['categorie']
+      });
+    }
+    
+    // Notifier le HomeScreen du changement
+    widget.onCartChanged();
+
+    // Petit feedback sonore visuel ultra propre
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: kSuccessColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                "🔥 ${plat['nom']} ajouté au panier !",
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: kSurfaceColor,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        action: SnackBarAction(
+          label: "VOIR",
+          textColor: kPrimaryColor,
+          onPressed: widget.onOpenCart,
+        ),
+      ),
     );
   }
 
@@ -43,162 +91,204 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- EN-TÊTE DU MENU ---
+            // --- EN-TÊTE DU MENU CYBER ---
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    "Notre Menu Shokugeki",
-                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.shopping_bag, color: kPrimaryColor),
-                    onPressed: widget.onOpenCart,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        kAppName.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 22, 
+                          fontWeight: FontWeight.w900, 
+                          color: Colors.white, 
+                          letterSpacing: 1.0
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        "Faites votre choix parmi nos délices",
+                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
 
-            // --- FILTRE DES CATÉGORIES ---
+            // --- BARRE DES CATÉGORIES ---
             SizedBox(
               height: 50,
-              child: ListView(
+              child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                children: ["Tout", "Poulet", "Burgers", "Divers"].map((categorie) {
-                  final isSelected = _selectedCategory == categorie;
+                itemCount: kDefaultCategories.length,
+                itemKind: null, // Évite les soucis sur certaines versions
+                itemBuilder: (context, i) {
+                  final cat = kDefaultCategories[i];
+                  final isSelected = _selectedCategory == cat;
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: ChoiceChip(
-                      label: Text(categorie),
+                      label: Text(
+                        cat,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.grey,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
                       selected: isSelected,
                       selectedColor: kPrimaryColor,
-                      labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.grey),
                       backgroundColor: kSurfaceColor,
-                      onSelected: (bool selected) {
-                        setState(() {
-                          _selectedCategory = categorie;
-                        });
+                      onSelected: (val) {
+                        if (val) setState(() => _selectedCategory = cat);
                       },
                     ),
                   );
-                }).toList(),
+                },
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
-            // --- LISTE DES PLATS DEPUIS FIRESTORE (COLLECTION MENU) ---
+            // --- STREAM DES PLATS FORMAT 16:9 ---
             Expanded(
-              child: StreamBuilder<dynamic>(
-                // ICI CORRIGÉ : On appelle la bonne méthode 'recupererMenu()' de ton service
-                stream: _firestoreService.recupererMenu(),
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _firestoreService.obtenirMenuTempsReel(),
                 builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return const Center(
-                      child: Text("Erreur de chargement du menu", style: TextStyle(color: Colors.red)),
-                    );
-                  }
                   if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: kPrimaryColor));
+                  }
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
                     return const Center(
-                      child: CircularProgressIndicator(color: kPrimaryColor),
+                      child: Text("Aucun plat disponible pour le moment.", style: TextStyle(color: Colors.grey)),
                     );
                   }
 
-                  final docs = snapshot.data?.docs ?? [];
-
-                  // Filtrage selon la catégorie sélectionnée
-                  final platsFiltres = docs.where((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    if (_selectedCategory == "Tout") return true;
-                    return data['categorie'] == _selectedCategory;
+                  // Filtrage par catégorie
+                  final plats = snapshot.data!.where((p) {
+                    if (_selectedCategory == "Tout") return p['disponible'] ?? true;
+                    return (p['categorie'] == _selectedCategory) && (p['disponible'] ?? true);
                   }).toList();
 
-                  if (platsFiltres.isEmpty) {
+                  if (plats.isEmpty) {
                     return const Center(
-                      child: Text("Aucun plat disponible", style: TextStyle(color: Colors.grey)),
+                      child: Text("Aucun plat dans cette catégorie.", style: TextStyle(color: Colors.grey)),
                     );
                   }
 
                   return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: platsFiltres.length,
+                    itemCount: plats.length,
+                    padding: const EdgeInsets.only(bottom: 80),
                     itemBuilder: (context, index) {
-                      final doc = platsFiltres[index];
-                      final plat = doc.data() as Map<String, dynamic>;
-                      plat['id'] = doc.id; // Injecte l'ID du document Firebase
+                      final plat = plats[index];
+                      final hasImage = plat['image'] != null && plat['image'].toString().isNotEmpty;
 
-                      final imageUrl = plat['image']?.toString() ?? '';
-
-                      return Card(
-                        color: kSurfaceColor,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              // Image mise en cache
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: imageUrl.isNotEmpty
-                                    ? CachedNetworkImage(
-                                        imageUrl: imageUrl,
-                                        width: 80,
-                                        height: 80,
-                                        fit: BoxFit.cover,
-                                        placeholder: (context, url) => _placeholderImage(),
-                                        errorWidget: (context, url, error) => _placeholderImage(),
-                                      )
-                                    : _placeholderImage(),
+                      return GestureDetector(
+                        onTap: () {
+                          // Permet quand même d'ouvrir les détails au clic sur la carte
+                          afficherDetailPlat(
+                            context,
+                            plat: plat,
+                            onAjouter: () => _ajouterAuPanierDirect(plat),
+                          );
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: kSurfaceColor,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withOpacity(0.03)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
                               ),
-                              const SizedBox(width: 16),
-                              // Informations textuelles
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // FORMAT BANNÈRE PREMIUM IMAGE 16:9
+                              AspectRatio(
+                                aspectRatio: 16 / 9,
+                                child: ClipRRect(
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(16),
+                                    topRight: Radius.circular(16),
+                                  ),
+                                  child: hasImage
+                                      ? CachedNetworkImage(
+                                          imageUrl: plat['image'],
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) => const Center(
+                                            child: CircularProgressIndicator(color: kPrimaryColor),
+                                          ),
+                                          errorWidget: (context, url, error) => _placeholderImage(),
+                                        )
+                                      : _placeholderImage(),
+                                ),
+                              ),
+                              
+                              // DETAILS DU PLAT ET BOUTON ACTION
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      plat['nom'] ?? 'Plat sans nom',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            plat['nom'] ?? 'Plat sans nom',
+                                            style: const TextStyle(
+                                              fontSize: 18, 
+                                              fontWeight: FontWeight.bold, 
+                                              color: Colors.white
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            "${plat['prix']} MRU",
+                                            style: const TextStyle(
+                                              color: kAccentColor, 
+                                              fontWeight: FontWeight.w900, 
+                                              fontSize: 16
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      plat['description'] ?? '',
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      "${plat['prix']} MRU",
-                                      style: const TextStyle(color: kPrimaryColor, fontWeight: FontWeight.bold),
+                                    const SizedBox(width: 10),
+                                    
+                                    // BOUTON AJOUT PANIER ULTRA FLUIDE
+                                    ElevatedButton.icon(
+                                      onPressed: () => _ajouterAuPanierDirect(plat),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: kPrimaryColor,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                        elevation: 2,
+                                      ),
+                                      icon: const Icon(Icons.add_shopping_cart, size: 16),
+                                      label: const Text(
+                                        "Ajouter",
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                              // Action : Appel direct de ta fonction globale afficherDetailPlat
-                              IconButton(
-                                icon: const Icon(Icons.add_circle, color: kPrimaryColor, size: 30),
-                                onPressed: () {
-                                  afficherDetailPlat(
-                                    context,
-                                    plat: plat,
-                                    onAjouter: () {
-                                      final itemDansPanier = {
-                                        'id': plat['id'],
-                                        'nom': plat['nom'],
-                                        'prix': (plat['prix'] as num).toDouble(),
-                                        'quantite': 1,
-                                        'categorie': plat['categorie']
-                                      };
-                                      widget.cartItems.add(itemDansPanier);
-                                      widget.onCartChanged();
-                                    },
-                                  );
-                                },
-                              )
                             ],
                           ),
                         ),
