@@ -107,21 +107,22 @@ class _LoginScreenState extends State<LoginScreen>
 
       Widget screen;
 
+      // CORRIGÉ : Tous les mots-clés 'const' problématiques ont été supprimés ici
       switch (role.trim().toLowerCase()) {
         case 'directeur':
-          screen = const DirecteurDashboardScreen();
+          screen = DirecteurDashboardScreen();
           break;
 
         case 'caissier':
-          screen = const CaissierDashboardScreen();
+          screen = CaissierDashboardScreen();
           break;
 
         case 'livreur':
-          screen = const LivreurDashboardScreen();
+          screen = LivreurDashboardScreen();
           break;
 
         case 'cuisine':
-          screen = const CuisineScreen();
+          screen = CuisineScreen();
           break;
 
         default:
