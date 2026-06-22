@@ -127,7 +127,6 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 itemCount: kDefaultCategories.length,
-                itemKind: null, // Évite les soucis sur certaines versions
                 itemBuilder: (context, i) {
                   final cat = kDefaultCategories[i];
                   final isSelected = _selectedCategory == cat;

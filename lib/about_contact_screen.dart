@@ -104,7 +104,11 @@ class AboutContactScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   const Text(
                     "Vous voulez la même application exclusive pour votre propre établissement ? Augmentez vos commandes de 40%, gérez vos livreurs et vos caisses comme un pro avec un abonnement mensuel ultra rentable.",
-                    style: TextStyle(color: Colors.whiteB0, fontSize: 13, height: 1.4),
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   const Text(
@@ -117,7 +121,7 @@ class AboutContactScreen extends StatelessWidget {
             
             const SizedBox(height: 32),
             
-            // BOUTON DE CONTACT UNIQUE, PRO ET PROPRE (WHATSAPP SÉCURISÉ)
+            // BOUTON DE CONTACT UNIQUE, PRO ET PROPRE (CHAT SÉCURISÉ)
             Container(
               width: double.infinity,
               height: 56,
@@ -139,7 +143,7 @@ class AboutContactScreen extends StatelessWidget {
                   shadowColor: Colors.transparent,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                icon: const Icon(Icons.whatsapp, color: Colors.white, size: 24),
+                icon: const Icon(Icons.chat, color: Colors.white, size: 24),
                 label: const Text(
                   "CONTACTER LE SCRIPT / NAGATO",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white, letterSpacing: 0.5),

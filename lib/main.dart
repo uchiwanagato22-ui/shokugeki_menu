@@ -250,7 +250,7 @@ class AppBlockScreen extends StatelessWidget {
               const SizedBox(height: 32),
               const Text(
                 "ACCÈS RESTREINT",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.black, letterSpacing: 1.5, color: Colors.white),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: Colors.white),
               ),
               const SizedBox(height: 16),
               // Bloc d'affichage contenant le motif de suspension configuré sur Firestore
@@ -265,7 +265,11 @@ class AppBlockScreen extends StatelessWidget {
                 child: Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white90, fontSize: 14, height: 1.5),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
                 ),
               ),
               const Spacer(),
