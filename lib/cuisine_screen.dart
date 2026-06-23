@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'premium_staff_widgets.dart';
 import 'widgets/developer_contact_button.dart';
@@ -42,10 +43,28 @@ class _CuisineScreenState extends State<CuisineScreen> {
           tooltip: 'Se déconnecter',
           icon: const Icon(Icons.logout, color: Colors.redAccent),
           onPressed: () async {
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                backgroundColor: const Color(0xFF14161D),
+                title: const Text('Déconnexion', style: TextStyle(color: Colors.white)),
+                content: const Text('Confirmer la déconnexion ?', style: TextStyle(color: Colors.white70)),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Déconnecter', style: TextStyle(color: Colors.redAccent)),
+                  ),
+                ],
+              ),
+            );
+            if (confirm != true || !context.mounted) return;
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove('staff_role');
             await FirebaseAuth.instance.signOut();
-            if (!mounted) return;
+            if (!context.mounted) return;
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const LoginScreen()),
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
               (route) => false,
             );
           },

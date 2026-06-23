@@ -59,7 +59,7 @@ class NotificationService {
       }
 
     } catch (e) {
-      print("Erreur token FCM : $e");
+      debugPrint("Erreur token FCM : $e");
     }
   }
 
@@ -127,43 +127,43 @@ class NotificationService {
       String cmdId,
       ) {
 
+    // ✅ FIX CRITIQUE : statuts corrigés pour correspondre à ce que Firestore contient
+    // Caissier envoie 'en_cuisine', livreur envoie 'livree', etc.
     switch (statut) {
-
-
-      case 'En cuisine':
-
+      case 'en_attente':
+        return (
+          titre: "Commande reçue 📋",
+          corps: "Commande #\$cmdId confirmée, en attente de validation."
+        );
+      case 'en_cuisine':
         return (
           titre: "En cuisine 🍳",
-          corps: "Commande #$cmdId est en préparation !"
+          corps: "Commande #\$cmdId est en préparation !"
         );
-
-
-      case 'En cours de livraison':
-
+      case 'pret':
+      case 'pret_pour_livraison':
+        return (
+          titre: "Prête ! 🛵",
+          corps: "Commande #\$cmdId est prête, le livreur arrive bientôt."
+        );
+      case 'en_livraison':
+      case 'en_cours_de_livraison':
         return (
           titre: "En route 🛵",
-          corps: "Commande #$cmdId est en cours de livraison !"
+          corps: "Commande #\$cmdId est en cours de livraison !"
         );
-
-
-      case 'Livré':
-
+      case 'livree':
+      case 'livre':
         return (
-          titre: "Livré 🎉",
-          corps: "Commande #$cmdId a été livrée. Bon appétit !"
+          titre: "Livrée 🎉",
+          corps: "Commande #\$cmdId a été livrée. Bon appétit !"
         );
-
-
-      case 'Rejeté / Fraude suspectée':
-
+      case 'rejete':
         return (
           titre: "Commande rejetée ❌",
-          corps: "Commande #$cmdId : problème de traitement."
+          corps: "Commande #\$cmdId a été rejetée. Contactez le restaurant."
         );
-
-
       default:
-
         return null;
     }
   }
