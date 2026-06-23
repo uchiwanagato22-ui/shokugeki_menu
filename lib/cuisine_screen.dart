@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'premium_staff_widgets.dart';
 import 'widgets/developer_contact_button.dart';
+import 'login_screen.dart';
 
 class CuisineScreen extends StatefulWidget {
   const CuisineScreen({super.key});
@@ -34,6 +36,21 @@ class _CuisineScreenState extends State<CuisineScreen> {
       subtitle: 'Tickets de preparation clairs, priorite aux commandes les plus anciennes.',
       icon: Icons.restaurant,
       palette: StaffPalette.kitchen,
+      actions: [
+        // 🎯 AJOUT : Bouton de déconnexion sécurisé
+        IconButton(
+          tooltip: 'Se déconnecter',
+          icon: const Icon(Icons.logout, color: Colors.redAccent),
+          onPressed: () async {
+            await FirebaseAuth.instance.signOut();
+            if (!mounted) return;
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+              (route) => false,
+            );
+          },
+        ),
+      ],
       children: [
         StreamBuilder<QuerySnapshot>(
           stream: _db
@@ -42,167 +59,132 @@ class _CuisineScreenState extends State<CuisineScreen> {
               .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
-              return EmptyStaffState(
-                icon: Icons.warning_amber,
-                title: 'Erreur cuisine',
-                message: snapshot.error.toString(),
+              return const EmptyStaffState(
+                icon: Icons.warning_amber_rounded,
+                title: 'Erreur',
+                message: 'Erreur de chargement des données de la cuisine.',
               );
             }
-            if (!snapshot.hasData) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final docs = snapshot.data!.docs;
+            final docs = snapshot.data?.docs ?? [];
             if (docs.isEmpty) {
               return const EmptyStaffState(
-                icon: Icons.local_dining,
-                title: 'Aucune commande en preparation',
-                message: 'Les prochains tickets envoyes par la caisse arriveront ici.',
+                icon: Icons.restaurant,
+                title: 'Cuisine vide',
+                message: 'Aucun plat à préparer pour le moment. Bon repos !',
               );
             }
 
-            return Column(
-              children: [
-                StaffMetricCard(
-                  label: 'Tickets actifs',
-                  value: docs.length.toString(),
-                  icon: Icons.kitchen,
-                  palette: StaffPalette.kitchen,
-                ),
-                StaffSectionTitle(
-                  title: 'A preparer maintenant',
-                  trailing: '${docs.length} ticket(s)',
-                ),
-                ...docs.map((doc) {
-                  final commande = doc.data() as Map<String, dynamic>;
-                  return _KitchenTicket(
-                    commande: commande,
-                    onReady: () => _marquerPret(doc.id),
-                  );
-                }),
-                const SizedBox(height: 12),
-                const DeveloperContactButton(),
-              ],
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: docs.length,
+              itemBuilder: (context, index) {
+                final commande = docs[index];
+                final data = commande.data() as Map<String, dynamic>;
+                final articles = (data['articles'] as List? ?? []);
+                final note = data['note_client']?.toString() ?? '';
+
+                // Restauration de ton sous-widget modulaire d'origine
+                return _KitchenTicketCard(
+                  commandeId: commande.id,
+                  articles: articles,
+                  note: note,
+                  onReady: () => _marquerPret(commande.id),
+                );
+              },
             );
           },
         ),
+        const SizedBox(height: 20),
+        const Center(child: DeveloperContactButton()),
       ],
     );
   }
 }
 
-class _KitchenTicket extends StatelessWidget {
-  const _KitchenTicket({
-    required this.commande,
+// ═══════════════════════════════════════════════════════════════
+//  WIDGET COMPOSANT : TICKET CUISINE (RESTAURÉ)
+// ═══════════════════════════════════════════════════════════════
+class _KitchenTicketCard extends StatelessWidget {
+  final String commandeId;
+  final List<dynamic> articles;
+  final String note;
+  final VoidCallback onReady;
+
+  const _KitchenTicketCard({
+    required this.commandeId,
+    required this.articles,
+    required this.note,
     required this.onReady,
   });
 
-  final Map<String, dynamic> commande;
-  final VoidCallback onReady;
-
   @override
   Widget build(BuildContext context) {
-    final articles = readArticles(commande);
-    final note = readText(commande, 'note_client');
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFF1D7AF)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFF7ED),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          children: [
+            Text(
+              'Ticket #${commandeId.substring(0, 5).toUpperCase()}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.timer, color: Color(0xFFD97706)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    readText(commande, 'client_nom', 'Client'),
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-                  ),
-                ),
-                Text(
-                  "${readMoney(commande['total']).toStringAsFixed(0)} MRU",
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: [
-                ...articles.map((article) {
-                  final item = article is Map ? article : <String, dynamic>{};
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAFAFA),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          height: 34,
-                          width: 34,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD97706),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '${item['quantite'] ?? 1}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
+            const Divider(),
+            ...articles.map((article) {
+              final item = article is Map ? article : <String, dynamic>{};
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Colors.amber,
+                      radius: 16,
+                      child: Text(
+                        'x${item['quantite'] ?? 1}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            item['nom']?.toString() ?? 'Plat',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  );
-                }),
-                if (note.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Note client : $note',
-                      style: const TextStyle(color: Color(0xFF92400E)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        item['nom']?.toString() ?? 'Plat',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                      ),
                     ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton.icon(
-                    onPressed: onReady,
-                    icon: const Icon(Icons.check_circle),
-                    label: const Text('Commande prete'),
-                  ),
+                  ],
                 ),
-              ],
+              );
+            }),
+            if (note.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Note client : $note',
+                  style: const TextStyle(color: Color(0xFF92400E)),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: onReady,
+                icon: const Icon(Icons.check_circle),
+                label: const Text('Commande prete'),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

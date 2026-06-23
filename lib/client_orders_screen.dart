@@ -109,8 +109,8 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
               }
 
               bool step1 = true;
-              bool step2 = statut == 'en_preparation' || statut == 'en_livraison' || statut == 'livree';
-              bool step3 = statut == 'en_livraison' || statut == 'livree';
+              bool step2 = statut == 'en_cuisine' || statut == 'pret' || statut == 'livree';
+              bool step3 = statut == 'pret' || statut == 'livree';
               bool step4 = statut == 'livree';
 
               return Container(

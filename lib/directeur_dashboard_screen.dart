@@ -10,6 +10,8 @@ import 'director_ia_service.dart';
 import 'premium_staff_widgets.dart';
 import 'restaurant_setup_seed.dart';
 import 'widgets/developer_contact_button.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'login_screen.dart';
 
 class DirectorDashboardScreen extends StatefulWidget {
   const DirectorDashboardScreen({super.key});
