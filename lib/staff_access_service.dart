@@ -1,15 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'app_config.dart';
 import 'restaurant_app_config.dart';
 
-class StaffAccessResult {
-  const StaffAccessResult({
-    required this.allowed,
-    this.role,
-    this.staffName,
-    this.errorMessage,
-  });
+// ═══════════════════════════════════════════════════════
+//  STAFF ACCESS SERVICE — Multi-tenant v2
+//  ✅ Lit les codes dans restaurants/{id}/staffCodes/
+//  ✅ Fallback sur codes hardcodés si Firestore indispo
+// ═══════════════════════════════════════════════════════
 
+class StaffAccessResult {
+  const StaffAccessResult({required this.allowed, this.role, this.staffName, this.errorMessage});
   final bool allowed;
   final StaffRole? role;
   final String? staffName;
@@ -17,38 +17,22 @@ class StaffAccessResult {
 }
 
 class StaffAccessService {
-  StaffAccessService({
-    FirebaseFirestore? firestore,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance;
+  StaffAccessService({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
-  Future<StaffAccessResult> verifyCode({
-    required String restaurantId,
-    required String code,
-  }) async {
+  Future<StaffAccessResult> verifyCode({required String code}) async {
     final normalizedCode = code.trim();
     if (!RegExp(r'^\d{4}$').hasMatch(normalizedCode)) {
-      return const StaffAccessResult(
-        allowed: false,
-        errorMessage: 'Le code doit contenir 4 chiffres.',
-      );
+      return const StaffAccessResult(allowed: false, errorMessage: 'Le code doit contenir 4 chiffres.');
     }
 
     try {
-      final restaurantDoc =
-          await _firestore.collection('restaurants').doc(restaurantId).get();
-      final restaurantData = restaurantDoc.data();
-      if (restaurantData != null && restaurantData['subscriptionActive'] == false) {
-        return const StaffAccessResult(
-          allowed: false,
-          errorMessage: 'Abonnement inactif. Acces personnel bloque.',
-        );
-      }
-
+      // ✅ Multi-tenant : lit dans restaurants/{restaurantId}/staffCodes/
       final query = await _firestore
           .collection('restaurants')
-          .doc(restaurantId)
+          .doc(AppConfig.restaurantId)
           .collection('staffCodes')
           .where('code', isEqualTo: normalizedCode)
           .where('active', isEqualTo: true)
@@ -59,34 +43,23 @@ class StaffAccessService {
         final data = query.docs.first.data();
         final role = staffRoleFromFirestore((data['role'] ?? '').toString());
         if (role == null) {
-          return const StaffAccessResult(
-            allowed: false,
-            errorMessage: 'Role personnel invalide.',
-          );
+          return const StaffAccessResult(allowed: false, errorMessage: 'Rôle invalide.');
         }
-
-        return StaffAccessResult(
-          allowed: true,
-          role: role,
-          staffName: data['name']?.toString(),
-        );
+        return StaffAccessResult(allowed: true, role: role, staffName: data['name']?.toString());
       }
-    } catch (_) {
-      // The copied app must still open during setup before Firestore is ready.
+    } catch (e) {
+      debugPrint('StaffAccessService Firestore error: $e');
+      // Firestore indispo → fallback codes hardcodés
     }
 
+    // Fallback : codes par défaut
     final fallbackRole = defaultStaffCodes[normalizedCode];
     if (fallbackRole != null) {
-      return StaffAccessResult(
-        allowed: true,
-        role: fallbackRole,
-        staffName: fallbackRole.label,
-      );
+      return StaffAccessResult(allowed: true, role: fallbackRole, staffName: fallbackRole.label);
     }
 
-    return const StaffAccessResult(
-      allowed: false,
-      errorMessage: 'Code incorrect ou desactive.',
-    );
+    return const StaffAccessResult(allowed: false, errorMessage: 'Code incorrect ou désactivé.');
   }
 }
+
+void debugPrint(String msg) => print(msg);

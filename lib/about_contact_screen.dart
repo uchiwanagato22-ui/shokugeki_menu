@@ -1,27 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'constants.dart';
- 
+
 class AboutContactScreen extends StatelessWidget {
   const AboutContactScreen({super.key});
- 
+
   // ─── Helpers WhatsApp ───────────────────────────────────────────────────────
- 
+
   Future<void> _ouvrirUrl(Uri uri) async {
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       debugPrint("Impossible d'ouvrir : $uri");
     }
   }
- 
+
   void _contacterWhatsApp(String message) {
     final clean = kDeveloperPhone.replaceAll(RegExp(r'[^\d+]'), '');
     final num   = clean.replaceAll('+', '');
     final uri   = Uri.parse('https://wa.me/$num?text=${Uri.encodeComponent(message)}');
     _ouvrirUrl(uri);
   }
- 
+
   // ─── Build ──────────────────────────────────────────────────────────────────
- 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -37,11 +37,11 @@ class AboutContactScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
- 
+
             // ── En-tête identité ────────────────────────────────────────────
             _HeroHeader(),
             const SizedBox(height: 32),
- 
+
             // ── Accroche ────────────────────────────────────────────────────
             const Text(
               'Votre idée. Notre code. Votre succès.',
@@ -63,11 +63,11 @@ class AboutContactScreen extends StatelessWidget {
               style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 32),
- 
+
             // ── Nos 3 services ──────────────────────────────────────────────
             const _SectionTitle(title: 'Nos services'),
             const SizedBox(height: 14),
- 
+
             _ServiceCard(
               icon: Icons.restaurant_menu_rounded,
               color: kPrimaryColor,
@@ -92,9 +92,9 @@ class AboutContactScreen extends StatelessWidget {
               ),
               buttonLabel: 'Je veux cette app',
             ),
- 
+
             const SizedBox(height: 14),
- 
+
             _ServiceCard(
               icon: Icons.phone_android_rounded,
               color: const Color(0xFF9C27B0),
@@ -119,9 +119,9 @@ class AboutContactScreen extends StatelessWidget {
               ),
               buttonLabel: 'Discuter de mon projet',
             ),
- 
+
             const SizedBox(height: 14),
- 
+
             _ServiceCard(
               icon: Icons.language_rounded,
               color: const Color(0xFF009688),
@@ -146,21 +146,21 @@ class AboutContactScreen extends StatelessWidget {
               ),
               buttonLabel: 'Commander mon site',
             ),
- 
+
             const SizedBox(height: 32),
- 
+
             // ── Chiffres clés ───────────────────────────────────────────────
             const _SectionTitle(title: 'Pourquoi nous choisir'),
             const SizedBox(height: 14),
             const _StatsRow(),
             const SizedBox(height: 32),
- 
+
             // ── Comment ça marche ───────────────────────────────────────────
             const _SectionTitle(title: 'Comment ça marche'),
             const SizedBox(height: 14),
             const _ProcessSteps(),
             const SizedBox(height: 32),
- 
+
             // ── CTA final ───────────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.all(20),
@@ -238,7 +238,7 @@ class AboutContactScreen extends StatelessWidget {
                 ],
               ),
             ),
- 
+
             const SizedBox(height: 30),
           ],
         ),
@@ -246,11 +246,11 @@ class AboutContactScreen extends StatelessWidget {
     );
   }
 }
- 
+
 // ══════════════════════════════════════════════════════════════════
 //  WIDGETS INTERNES
 // ══════════════════════════════════════════════════════════════════
- 
+
 class _HeroHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -297,11 +297,11 @@ class _HeroHeader extends StatelessWidget {
     );
   }
 }
- 
+
 class _SectionTitle extends StatelessWidget {
   final String title;
   const _SectionTitle({required this.title});
- 
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -321,7 +321,7 @@ class _SectionTitle extends StatelessWidget {
     );
   }
 }
- 
+
 class _ServiceCard extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -333,7 +333,7 @@ class _ServiceCard extends StatelessWidget {
   final String price;
   final VoidCallback onTap;
   final String buttonLabel;
- 
+
   const _ServiceCard({
     required this.icon,
     required this.color,
@@ -346,7 +346,7 @@ class _ServiceCard extends StatelessWidget {
     required this.onTap,
     required this.buttonLabel,
   });
- 
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -406,14 +406,14 @@ class _ServiceCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
- 
+
           // Description
           Text(
             description,
             style: const TextStyle(color: Colors.grey, fontSize: 13, height: 1.5),
           ),
           const SizedBox(height: 12),
- 
+
           // Features
           ...features.map((f) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 3),
@@ -428,11 +428,11 @@ class _ServiceCard extends StatelessWidget {
                   ],
                 ),
               )),
- 
+
           const SizedBox(height: 14),
           const Divider(color: Colors.white12, height: 1),
           const SizedBox(height: 12),
- 
+
           // Prix + Bouton
           Row(
             children: [
@@ -470,10 +470,10 @@ class _ServiceCard extends StatelessWidget {
     );
   }
 }
- 
+
 class _StatsRow extends StatelessWidget {
   const _StatsRow();
- 
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -487,12 +487,12 @@ class _StatsRow extends StatelessWidget {
     );
   }
 }
- 
+
 class _StatBox extends StatelessWidget {
   final String value;
   final String label;
   const _StatBox({required this.value, required this.label});
- 
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -517,17 +517,17 @@ class _StatBox extends StatelessWidget {
     );
   }
 }
- 
+
 class _ProcessSteps extends StatelessWidget {
   const _ProcessSteps();
- 
+
   static const _steps = [
     ('1', 'Contact', 'Un message WhatsApp suffit'),
     ('2', 'Brief', 'On discute de votre projet en détail'),
     ('3', 'Dev', 'On développe votre app ou site'),
     ('4', 'Livraison', 'Vous recevez votre produit fini'),
   ];
- 
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -587,4 +587,3 @@ class _ProcessSteps extends StatelessWidget {
     );
   }
 }
- 

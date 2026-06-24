@@ -3,9 +3,9 @@
 //  Images gratuites Unsplash CDN (0 MRU)
 //  Le directeur peut importer tout ça en 1 clic depuis Firebase.
 // ═══════════════════════════════════════════════════════════════
- 
+
 const List<Map<String, dynamic>> kPlatsExempleMauritanie = [
- 
+
   // ════════════════ BURGERS ════════════════
   {
     'nom': 'Burger Shokugeki Classic',
@@ -47,7 +47,7 @@ const List<Map<String, dynamic>> kPlatsExempleMauritanie = [
     'disponible': true,
     'image': 'https://images.unsplash.com/photo-1603064752734-4c48eff3cce6?w=600&q=80',
   },
- 
+
   // ════════════════ PIZZAS ════════════════
   {
     'nom': 'Pizza Margherita',
@@ -81,7 +81,7 @@ const List<Map<String, dynamic>> kPlatsExempleMauritanie = [
     'disponible': true,
     'image': 'https://images.unsplash.com/photo-1548369937-47519962c11a?w=600&q=80',
   },
- 
+
   // ════════════════ POULET ════════════════
   {
     'nom': 'Poulet Crispy Bucket',
@@ -131,7 +131,7 @@ const List<Map<String, dynamic>> kPlatsExempleMauritanie = [
     'disponible': true,
     'image': 'https://images.unsplash.com/photo-1562967914-608f82629710?w=600&q=80',
   },
- 
+
   // ════════════════ PLATS LOCAUX / DIVERS ════════════════
   {
     'nom': 'Thieboudienne Classique',
@@ -197,7 +197,7 @@ const List<Map<String, dynamic>> kPlatsExempleMauritanie = [
     'disponible': true,
     'image': 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=80',
   },
- 
+
   // ════════════════ DESSERTS ════════════════
   {
     'nom': 'Attaya & Pâtisseries',
@@ -247,7 +247,7 @@ const List<Map<String, dynamic>> kPlatsExempleMauritanie = [
     'disponible': true,
     'image': 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=600&q=80',
   },
- 
+
   // ════════════════ BOISSONS ════════════════
   {
     'nom': 'Jus Bissap Glacé',

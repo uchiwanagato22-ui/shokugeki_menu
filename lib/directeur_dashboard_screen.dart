@@ -14,7 +14,9 @@ import 'premium_staff_widgets.dart';
 import 'restaurant_setup_seed.dart';
 import 'widgets/developer_contact_button.dart';
 import 'login_screen.dart';
+import 'app_config.dart';
 import 'constants.dart';
+import 'stats_screen.dart';
 
 class DirectorDashboardScreen extends StatefulWidget {
   const DirectorDashboardScreen({super.key});
@@ -196,7 +198,7 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen>
         final url = await _uploadVersCloudinary(_imageSelectionnee!);
         if (url != null) imageUrl = url;
       }
-      await _db.collection('menu').add({
+      await _db.collection(AppConfig.menu).add({
         'nom': nom,
         'prix': prix,
         'categorie': _categorieController.text.trim().isEmpty ? 'Divers' : _categorieController.text.trim(),
@@ -234,17 +236,17 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen>
       ),
     );
     if (ok != true) return;
-    await _db.collection('menu').doc(docId).delete();
+    await _db.collection(AppConfig.menu).doc(docId).delete();
     if (!mounted) return;
     _snack('Plat supprimé', Colors.orange);
   }
 
   Future<void> _changerDisponibilite(String docId, bool actuel) async {
-    await _db.collection('menu').doc(docId).update({'disponible': !actuel, 'updated_at': FieldValue.serverTimestamp()});
+    await _db.collection(AppConfig.menu).doc(docId).update({'disponible': !actuel, 'updated_at': FieldValue.serverTimestamp()});
   }
 
   Future<void> _changerBadge(String docId, String champ, bool actuel) async {
-    await _db.collection('menu').doc(docId).update({champ: !actuel, 'updated_at': FieldValue.serverTimestamp()});
+    await _db.collection(AppConfig.menu).doc(docId).update({champ: !actuel, 'updated_at': FieldValue.serverTimestamp()});
   }
 
   Future<void> _deconnecter() async {
@@ -285,6 +287,14 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen>
       palette: StaffPalette.director,
       actions: [
         IconButton(
+          icon: const Icon(Icons.bar_chart),
+          tooltip: 'Statistiques',
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const StatsScreen()),
+          ),
+        ),
+        IconButton(
           tooltip: 'Installer config Firebase',
           onPressed: _isSeeding ? null : _installerBaseFirebase,
           icon: _isSeeding
@@ -296,7 +306,7 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen>
       children: [
         // ── Stats live ──────────────────────────────────
         StreamBuilder<QuerySnapshot>(
-          stream: _db.collection('commandes').where('statut', whereNotIn: ['rejete']).snapshots(),
+          stream: _db.collection(AppConfig.commandes).where('statut', whereNotIn: ['rejete']).snapshots(),
           builder: (context, snapshot) {
             double ca = 0; int total = 0; int livrees = 0; int enCours = 0;
             final plats = <String>[]; final paiements = <String, int>{'cash': 0, 'bankily': 0, 'masrivi': 0};

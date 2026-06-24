@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'widgets/developer_contact_button.dart';
+import 'app_config.dart';
 import 'constants.dart';
 
 // ═══════════════════════════════════════════════════════
@@ -96,7 +97,7 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
 
     try {
       // ✅ Toutes les clés en camelCase — cohérent avec livreur et caissier
-      await _db.collection('commandes').add({
+      await _db.collection(AppConfig.commandes).add({
         'clientId': _auth.currentUser?.uid ?? 'invite',
         'clientNom': _nomCtrl.text.trim(),           // ← camelCase unifié
         'clientTelephone': _telCtrl.text.trim(),      // ← camelCase unifié

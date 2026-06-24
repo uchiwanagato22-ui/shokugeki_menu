@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
- 
+
 import 'auth_service.dart';
 import 'register_screen.dart';
 import 'client_home_screen.dart';
@@ -11,32 +11,32 @@ import 'directeur_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
 import 'widgets/developer_contact_button.dart';
 import 'constants.dart';
- 
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
- 
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
- 
+
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final AuthService _authService = AuthService();
- 
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _codeController = TextEditingController();
- 
+
   bool _isLoading = false;
   bool _obscurePassword = true;
- 
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
   }
- 
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -45,21 +45,21 @@ class _LoginScreenState extends State<LoginScreen>
     _codeController.dispose();
     super.dispose();
   }
- 
+
   void _connexionClient() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       _showSnack("Remplis tous les champs", isError: true);
       return;
     }
- 
+
     setState(() => _isLoading = true);
- 
+
     try {
       UserCredential? userCredential = await _authService.connecterClient(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
- 
+
       if (userCredential != null && mounted) {
         Navigator.pushReplacement(
           context,
@@ -95,29 +95,29 @@ class _LoginScreenState extends State<LoginScreen>
       if (mounted) setState(() => _isLoading = false);
     }
   }
- 
+
   void _connexionPersonnel() async {
     if (_codeController.text.length != 4) {
       _showSnack("Code 4 chiffres obligatoire", isError: true);
       return;
     }
- 
+
     setState(() => _isLoading = true);
- 
+
     try {
       String? role =
           await _authService.connecterPersonnel(_codeController.text.trim());
- 
+
       if (role == null) {
         _showSnack("Code incorrect ou désactivé", isError: true);
         return;
       }
- 
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('staff_role', role);
- 
+
       if (!mounted) return;
- 
+
       // ✅ FIX CRITIQUE : DirectorDashboardScreen (nom réel, pas DirecteurDashboardScreen)
       Widget screen;
       switch (role.trim().toLowerCase()) {
@@ -137,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen>
           screen = const LoginScreen();
           break;
       }
- 
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => screen),
@@ -148,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (mounted) setState(() => _isLoading = false);
     }
   }
- 
+
   void _showSnack(String msg, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -158,7 +158,7 @@ class _LoginScreenState extends State<LoginScreen>
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
   }
- 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -254,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen>
                     ],
                   ),
                 ),
- 
+
                 // ── ONGLET STAFF ──
                 SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
