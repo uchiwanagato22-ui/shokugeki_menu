@@ -11,7 +11,6 @@ import 'caissier_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
 import 'restaurant_workflows.dart';
 import 'default_menu_plats.dart';
-import 'notification_service.dart';
 import 'cuisine_screen.dart';
 import 'chef_ia_screen.dart';
 import 'login_screen.dart';
