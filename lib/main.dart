@@ -12,12 +12,11 @@ import 'livreur_dashboard_screen.dart';
 import 'restaurant_workflows.dart';
 import 'default_menu_plats.dart';
 import 'cuisine_screen.dart';
-import 'chef_ia_screen.dart';
 import 'login_screen.dart';
 import 'auth_service.dart';
 import 'client_home_screen.dart';
 import 'constants.dart';
-import 'onboarding_screen.dart';
+import 'welcome_character_screen.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -97,13 +96,10 @@ class ShokugekiMenuApp extends StatelessWidget {
         ),
       ),
       home: FutureBuilder<bool>(
-        future: OnboardingScreen.doitAfficher(),
-        builder: (context, snap) {
-          if (!snap.hasData) return const SizedBox();
-          return snap.data == true
-              ? const OnboardingScreen()
-              : const AppScreenWrapper();
-        },
+        future: WelcomeCharacterScreen.doitAfficher(),
+        builder: (_, snap) => snap.data == true
+            ? const WelcomeCharacterScreen()
+            : const AppScreenWrapper(),
       ),
     );
   }

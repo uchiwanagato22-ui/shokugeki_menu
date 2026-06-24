@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'branding_service.dart';
+import 'chef_ia_client_screen.dart';
 import 'constants.dart';
 import 'gemini_service.dart';
 import 'widgets/developer_contact_button.dart';
@@ -114,9 +115,73 @@ Client dit : $texte
         title: const Text("Le Chef Suprême IA 🍳", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: kSurfaceColor,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline, color: Colors.purpleAccent),
+            tooltip: 'Chat recommandations',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ChefIaClientScreen()),
+            ),
+          ),
+        ],
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ChefIaClientScreen()),
+                ),
+                borderRadius: BorderRadius.circular(14),
+                child: Ink(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.purple.withOpacity(0.25),
+                        Colors.deepPurple.withOpacity(0.15),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.purple.withOpacity(0.4)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Text('👩‍🍳', style: TextStyle(fontSize: 22)),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Chat recommandations',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              'Suggestions rapides sur le menu',
+                              style: TextStyle(color: Colors.purpleAccent, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios, color: Colors.purpleAccent, size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
