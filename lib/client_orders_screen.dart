@@ -5,7 +5,7 @@ import 'app_config.dart';
 import 'constants.dart';
 
 // ═══════════════════════════════════════════════════════
-//  MES COMMANDES — v2
+//  MES COMMANDES — v2 (CORRIGÉ MULTI-TENANT)
 //  ✅ Suivi temps réel avec stepper visuel
 //  ✅ Statuts complets : en_attente → en_cuisine → pret → livree
 //  ✅ Gère sur_place et livraison
@@ -25,8 +25,14 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
   final Set<String> _notationsDemandees = {};
 
   Future<void> _noterCommande(String docId, int note) async {
-    await FirebaseFirestore.instance.collection(AppConfig.commandes).doc(docId)
+    // CORRECTION : Chemin mis à jour vers la sous-collection du restaurant
+    await FirebaseFirestore.instance
+        .collection('restaurants')
+        .doc(AppConfig.restaurantId)
+        .collection('commandes')
+        .doc(docId)
         .update({'note': note, 'updated_at': FieldValue.serverTimestamp()});
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Merci pour votre note ! ⭐'), backgroundColor: Colors.green),
@@ -90,7 +96,10 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: StreamBuilder<QuerySnapshot>(
+        // CORRECTION : Écoute de la sous-collection du restaurant au lieu de la racine
         stream: FirebaseFirestore.instance
+            .collection('restaurants')
+            .doc(AppConfig.restaurantId)
             .collection('commandes')
             .where('clientId', isEqualTo: _uid)
             .orderBy('date_creation', descending: true)
@@ -178,7 +187,6 @@ class _CommandeCard extends StatefulWidget {
 class _CommandeCardState extends State<_CommandeCard> {
   bool _expanded = false;
 
-  // ✅ Mapping statut → étape (0-3)
   int get _etape {
     switch (widget.statut) {
       case 'en_attente': return 0;
@@ -225,7 +233,6 @@ class _CommandeCardState extends State<_CommandeCard> {
   Widget build(BuildContext context) {
     final etape = _etape;
     final estRejete = etape == -1;
-    final estLivre = etape == 4;
 
     final steps = widget.surPlace
         ? ['Reçue', 'Cuisine', 'Prête', 'Servie']
@@ -239,7 +246,6 @@ class _CommandeCardState extends State<_CommandeCard> {
         border: Border.all(color: estRejete ? Colors.red.withOpacity(0.3) : Colors.white.withOpacity(0.05)),
       ),
       child: Column(children: [
-        // Header
         GestureDetector(
           onTap: () => setState(() => _expanded = !_expanded),
           child: Container(
@@ -266,7 +272,6 @@ class _CommandeCardState extends State<_CommandeCard> {
           ),
         ),
 
-        // Stepper visuel
         if (!estRejete) Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Row(children: List.generate(steps.length * 2 - 1, (i) {
@@ -294,14 +299,12 @@ class _CommandeCardState extends State<_CommandeCard> {
           })),
         ),
 
-        // Détails expandables
         if (_expanded) Container(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Divider(color: Colors.white12),
             const SizedBox(height: 8),
 
-            // Infos commande
             Row(children: [
               _InfoPill(label: widget.surPlace ? '🪑 Sur place' : '🛵 ${widget.zone}', color: Colors.blue),
               const SizedBox(width: 8),
@@ -309,7 +312,6 @@ class _CommandeCardState extends State<_CommandeCard> {
             ]),
             const SizedBox(height: 12),
 
-            // Articles
             const Text('Articles commandés :', style: TextStyle(color: Colors.grey, fontSize: 12)),
             const SizedBox(height: 6),
             ...widget.articles.map((a) {
@@ -328,8 +330,7 @@ class _CommandeCardState extends State<_CommandeCard> {
               );
             }),
 
-            // Notation
-            if (estLivre && widget.note == null) ...[
+            if (etape == 4 && widget.note == null) ...[
               const SizedBox(height: 14),
               GestureDetector(
                 onTap: widget.onNoter,
@@ -361,7 +362,6 @@ class _CommandeCardState extends State<_CommandeCard> {
           ]),
         ),
 
-        // Rejeté
         if (estRejete) Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Container(

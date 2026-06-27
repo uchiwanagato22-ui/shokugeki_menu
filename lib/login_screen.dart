@@ -11,6 +11,16 @@ import 'directeur_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
 import 'widgets/developer_contact_button.dart';
 import 'constants.dart';
+import 'app_config.dart';
+import 'staff_access_service.dart';
+import 'restaurant_app_config.dart';
+
+// ═══════════════════════════════════════════════════════
+//  ÉCRAN DE CONNEXION — v2 (UNIFIÉ & MULTI-TENANT)
+//  ✅ Connexion Client via Email/Password standard
+//  ✅ Connexion Personnel UNIFIÉE via StaffAccessService
+//  ✅ Utilise la sous-collection 'staffCodes' (Plus de doublon avec 'personnel')
+// ═══════════════════════════════════════════════════════
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -23,6 +33,9 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final AuthService _authService = AuthService();
+  
+  // ✅ Instanciation du service d'accès unifié du personnel
+  final StaffAccessService _staffAccessService = StaffAccessService();
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -67,7 +80,6 @@ class _LoginScreenState extends State<LoginScreen>
         );
       }
     } on FirebaseAuthException catch (e) {
-      // FIX : messages d'erreur clairs en français
       String msg;
       switch (e.code) {
         case 'user-not-found':
@@ -105,32 +117,46 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = true);
 
     try {
-      String? role =
-          await _authService.connecterPersonnel(_codeController.text.trim());
+      // ✅ CORRECTION : On utilise le même canal que l'autre écran secret
+      // On interroge 'restaurants/shokugeki/staffCodes' de façon propre.
+      final result = await _staffAccessService.verifyCode(
+        restaurantId: AppConfig.restaurantId,
+        code: _codeController.text.trim(),
+      );
 
-      if (role == null) {
-        _showSnack("Code incorrect ou désactivé", isError: true);
+      if (!result.allowed || result.role == null) {
+        _showSnack(result.errorMessage ?? "Code incorrect ou désactivé", isError: true);
         return;
       }
 
+      // Conversion du StaffRole (enum) en String pour SharedPreferences
+      String roleStr = '';
+      switch (result.role) {
+        case StaffRole.directeur: roleStr = 'directeur'; break;
+        case StaffRole.caissier: roleStr = 'caissier'; break;
+        case StaffRole.livreur: roleStr = 'livreur'; break;
+        case StaffRole.cuisine: roleStr = 'cuisine'; break;
+        default: roleStr = '';
+      }
+
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('staff_role', role);
+      await prefs.setString('staff_role', roleStr);
 
       if (!mounted) return;
 
-      // ✅ FIX CRITIQUE : DirectorDashboardScreen (nom réel, pas DirecteurDashboardScreen)
+      // ✅ Redirection vers les bons Dashboards selon l'enum fortement typé
       Widget screen;
-      switch (role.trim().toLowerCase()) {
-        case 'directeur':
+      switch (result.role) {
+        case StaffRole.directeur:
           screen = DirectorDashboardScreen();
           break;
-        case 'caissier':
+        case StaffRole.caissier:
           screen = CaissierDashboardScreen();
           break;
-        case 'livreur':
+        case StaffRole.livreur:
           screen = LivreurDashboardScreen();
           break;
-        case 'cuisine':
+        case StaffRole.cuisine:
           screen = CuisineScreen();
           break;
         default:
@@ -218,7 +244,6 @@ class _LoginScreenState extends State<LoginScreen>
                         decoration: InputDecoration(
                           labelText: "Mot de passe",
                           prefixIcon: const Icon(Icons.lock_outline),
-                          // FIX : bouton afficher/masquer mot de passe
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword

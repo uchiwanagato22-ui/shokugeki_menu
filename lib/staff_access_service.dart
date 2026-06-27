@@ -3,8 +3,9 @@ import 'app_config.dart';
 import 'restaurant_app_config.dart';
 
 // ═══════════════════════════════════════════════════════
-//  STAFF ACCESS SERVICE — Multi-tenant v2
+//  STAFF ACCESS SERVICE — Multi-tenant v2 (CORRIGÉ)
 //  ✅ Lit les codes dans restaurants/{id}/staffCodes/
+//  ✅ Gère le paramètre optionnel ou le fallback par défaut
 //  ✅ Fallback sur codes hardcodés si Firestore indispo
 // ═══════════════════════════════════════════════════════
 
@@ -22,17 +23,24 @@ class StaffAccessService {
 
   final FirebaseFirestore _firestore;
 
-  Future<StaffAccessResult> verifyCode({required String code}) async {
+  // CORRECTION : Ajout du paramètre 'restaurantId' nommé et optionnel pour correspondre à l'appel de l'UI
+  Future<StaffAccessResult> verifyCode({
+    String? restaurantId, 
+    required String code,
+  }) async {
     final normalizedCode = code.trim();
     if (!RegExp(r'^\d{4}$').hasMatch(normalizedCode)) {
       return const StaffAccessResult(allowed: false, errorMessage: 'Le code doit contenir 4 chiffres.');
     }
 
     try {
-      // ✅ Multi-tenant : lit dans restaurants/{restaurantId}/staffCodes/
+      // Choix de l'ID passé par l'écran ou de celui configuré globalement
+      final targetId = restaurantId ?? AppConfig.restaurantId;
+
+      // ✅ Multi-tenant : lit de manière sécurisée dans le bon dossier du restaurant
       final query = await _firestore
           .collection('restaurants')
-          .doc(AppConfig.restaurantId)
+          .doc(targetId)
           .collection('staffCodes')
           .where('code', isEqualTo: normalizedCode)
           .where('active', isEqualTo: true)
