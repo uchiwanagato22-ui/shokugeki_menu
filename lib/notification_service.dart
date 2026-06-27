@@ -13,15 +13,24 @@ class NotificationService {
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
 
   bool _initialized = false;
-  Stream<QuerySnapshot>? _commandeStream;
+  String? _watchedUid;
 
   Future<void> init() async {
     if (_initialized) return;
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const settings = InitializationSettings(android: android);
-    await _local.initialize(settings);
-    await _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+
+    const initializationSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    );
+
+    // ✅ FIX: named parameter "settings:" comme dans la version originale
+    await _local.initialize(
+      settings: initializationSettings,
+    );
+
+    await _local
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
+
     await _fcm.requestPermission();
     _initialized = true;
   }
@@ -44,22 +53,29 @@ class NotificationService {
 
   void demarrerSuiviCommandes() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    if (uid == null || _watchedUid == uid) return;
+    _watchedUid = uid;
 
-    _commandeStream = FirebaseFirestore.instance
+    // ✅ Multi-tenant : écoute les commandes du bon restaurant
+    FirebaseFirestore.instance
         .collection(AppConfig.commandes)
         .where('clientId', isEqualTo: uid)
-        .snapshots();
-
-    _commandeStream?.listen((snap) {
-      for (final change in snap.docChanges) {
-        if (change.type == DocumentChangeType.modified) {
-          final data = change.doc.data() as Map<String, dynamic>? ?? {};
+        .snapshots()
+        .listen((snapshot) {
+      for (final doc in snapshot.docChanges) {
+        if (doc.type == DocumentChangeType.modified) {
+          final data = doc.doc.data() as Map<String, dynamic>? ?? {};
           final statut = data['statut']?.toString() ?? '';
-          final cmdId = change.doc.id.length > 6 ? change.doc.id.substring(0, 6).toUpperCase() : change.doc.id.toUpperCase();
-          final notif = _buildNotif(statut, cmdId);
-          if (notif != null) {
-            _afficherNotifLocale(notif['titre']!, notif['corps']!);
+          final cmdId = doc.doc.id.length > 6
+              ? doc.doc.id.substring(0, 6).toUpperCase()
+              : doc.doc.id.toUpperCase();
+          final message = _messagePourStatut(statut, cmdId);
+          if (message != null) {
+            _afficher(
+              id: doc.doc.id.hashCode,
+              titre: message.titre,
+              corps: message.corps,
+            );
           }
         }
       }
@@ -67,47 +83,54 @@ class NotificationService {
   }
 
   void arreterSuivi() {
-    _commandeStream = null;
+    _watchedUid = null;
   }
 
-  Map<String, String>? _buildNotif(String statut, String cmdId) {
+  // ✅ Statuts corrigés (minuscules + underscores)
+  ({String titre, String corps})? _messagePourStatut(String statut, String cmdId) {
     switch (statut) {
       case 'en_attente':
-        return {'titre': 'Commande recue', 'corps': 'Commande #$cmdId confirmee, validation en cours.'};
+        return (titre: 'Commande recue', corps: 'Commande #$cmdId confirmee, validation en cours.');
       case 'en_cuisine':
-        return {'titre': 'En preparation !', 'corps': 'Commande #$cmdId est en cours de preparation.'};
+        return (titre: 'En preparation !', corps: 'Commande #$cmdId est en cours de preparation.');
       case 'pret':
       case 'pret_pour_livraison':
-        return {'titre': 'Prete !', 'corps': 'Commande #$cmdId est prete, livraison imminente.'};
+        return (titre: 'Prete !', corps: 'Commande #$cmdId prete, livraison imminente.');
       case 'en_livraison':
       case 'en_cours_de_livraison':
-        return {'titre': 'En route !', 'corps': 'Commande #$cmdId est en chemin vers vous !'};
+        return (titre: 'En route !', corps: 'Commande #$cmdId est en chemin vers vous !');
       case 'livree':
       case 'livre':
-        return {'titre': 'Livree !', 'corps': 'Commande #$cmdId livree. Bon appetit !'};
+        return (titre: 'Livree !', corps: 'Commande #$cmdId livree. Bon appetit !');
       case 'rejete':
-        return {'titre': 'Commande rejetee', 'corps': 'Commande #$cmdId a ete rejetee.'};
+        return (titre: 'Commande rejetee', corps: 'Commande #$cmdId a ete rejetee. Contactez le restaurant.');
       default:
         return null;
     }
   }
 
-  Future<void> _afficherNotifLocale(String titre, String corps) async {
-    const details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        'commandes_channel',
-        'Suivi commandes',
-        channelDescription: 'Notifications de suivi de vos commandes',
-        importance: Importance.high,
-        priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
-      ),
+  Future<void> _afficher({
+    required int id,
+    required String titre,
+    required String corps,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'commandes_channel',
+      'Suivi des commandes',
+      channelDescription: 'Notifications de statut des commandes Shokugeki',
+      importance: Importance.max,
+      priority: Priority.high,
+      ticker: 'ticker',
     );
+
+    const notificationDetails = NotificationDetails(android: androidDetails);
+
+    // ✅ FIX: named parameters comme dans la version originale
     await _local.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      titre,
-      corps,
-      details,
+      id: id,
+      title: titre,
+      body: corps,
+      notificationDetails: notificationDetails,
     );
   }
 }
