@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'app_config.dart';
 
@@ -29,7 +28,7 @@ class NotificationService {
     const initSettings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     );
-    await _local.initialize(settings: initSettings);
+    await _local.initialize(initSettings);
     await _local.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
     await _fcm.requestPermission();
@@ -71,7 +70,7 @@ class NotificationService {
           final statut = data['statut']?.toString() ?? '';
           final cmdId = change.doc.id.substring(0, 6).toUpperCase();
           final notif = _buildNotif(statut, cmdId);
-          if (notif != null) _afficherNotifLocale(notif.titre, notif.corps);
+          if (notif != null) _afficherNotifLocale(notif.$1, notif.$2);
         }
       }
     });
@@ -116,11 +115,11 @@ class NotificationService {
         icon: '@mipmap/ic_launcher',
       ),
     );
-    await _local.show(
-      id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title: titre,
-      body: corps,
-      notificationDetails: details,
-    );
+    await _local.show(DateTime.now().millisecondsSinceEpoch ~/ 1000, titre, corps, details);
   }
+}
+
+void debugPrint(String msg) {
+  // ignore: avoid_print
+  print(msg);
 }

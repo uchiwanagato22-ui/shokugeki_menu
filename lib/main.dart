@@ -11,12 +11,14 @@ import 'caissier_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
 import 'restaurant_workflows.dart';
 import 'default_menu_plats.dart';
+import 'notification_service.dart';
 import 'cuisine_screen.dart';
+import 'chef_ia_screen.dart';
 import 'login_screen.dart';
 import 'auth_service.dart';
 import 'client_home_screen.dart';
 import 'constants.dart';
-import 'welcome_character_screen.dart';
+import 'welcome_character_screen.dart'; // 👈 Ajout de l'import de ton écran
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -92,14 +94,23 @@ class ShokugekiMenuApp extends StatelessWidget {
           primary: kPrimaryColor,
           secondary: kSecondaryColor,
           surface: kSurfaceColor,
-          background: kBackgroundColor,
         ),
       ),
+      // 🚀 Intégration du FutureBuilder pour gérer dynamiquement l'affichage du Welcome Screen
       home: FutureBuilder<bool>(
         future: WelcomeCharacterScreen.doitAfficher(),
-        builder: (_, snap) => snap.data == true
-            ? const WelcomeCharacterScreen()
-            : const AppScreenWrapper(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: kPrimaryColor),
+              ),
+            );
+          }
+          return snapshot.data == true
+              ? const WelcomeCharacterScreen()
+              : const AppScreenWrapper();
+        },
       ),
     );
   }
@@ -138,7 +149,6 @@ class _AppScreenWrapperState extends State<AppScreenWrapper> {
       debugPrint("Erreur vérification statut : $e");
       if (mounted) {
         setState(() {
-          // FIX : erreur réseau = on laisse passer, pas bloquer
           _isAppActive = true;
           _isCheckingStatus = false;
         });
@@ -314,7 +324,6 @@ class _AuthGatewayRouterState extends State<AuthGatewayRouter> {
     );
   }
 
-  // ✅ FIX CRITIQUE : utilise DirectorDashboardScreen (nom réel de la classe)
   Widget _routerVersEcranPersonnel(String role) {
     switch (role.trim().toLowerCase()) {
       case 'directeur':

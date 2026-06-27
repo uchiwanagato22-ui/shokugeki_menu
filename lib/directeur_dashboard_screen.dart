@@ -16,7 +16,6 @@ import 'widgets/developer_contact_button.dart';
 import 'login_screen.dart';
 import 'app_config.dart';
 import 'constants.dart';
-import 'stats_screen.dart';
 
 class DirectorDashboardScreen extends StatefulWidget {
   const DirectorDashboardScreen({super.key});
@@ -286,14 +285,6 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen>
       icon: Icons.dashboard_customize,
       palette: StaffPalette.director,
       actions: [
-        IconButton(
-          icon: const Icon(Icons.bar_chart),
-          tooltip: 'Statistiques',
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const StatsScreen()),
-          ),
-        ),
         IconButton(
           tooltip: 'Installer config Firebase',
           onPressed: _isSeeding ? null : _installerBaseFirebase,
