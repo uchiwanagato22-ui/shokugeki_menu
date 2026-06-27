@@ -5,7 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+ 
 import 'directeur_dashboard_screen.dart';
 import 'caissier_dashboard_screen.dart';
 import 'livreur_dashboard_screen.dart';
@@ -17,26 +17,26 @@ import 'chef_ia_screen.dart';
 import 'login_screen.dart';
 import 'auth_service.dart';
 import 'client_home_screen.dart';
+import 'welcome_character_screen.dart';
 import 'constants.dart';
-import 'welcome_character_screen.dart'; // 👈 Ajout de l'import de ton écran
-
+ 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   debugPrint("Notification arrière-plan : ${message.notification?.title}");
 }
-
+ 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const ShokugekiMenuApp());
 }
-
+ 
 class ShokugekiMenuApp extends StatelessWidget {
   const ShokugekiMenuApp({super.key});
-
+ 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -94,20 +94,14 @@ class ShokugekiMenuApp extends StatelessWidget {
           primary: kPrimaryColor,
           secondary: kSecondaryColor,
           surface: kSurfaceColor,
+          background: kBackgroundColor,
         ),
       ),
-      // 🚀 Intégration du FutureBuilder pour gérer dynamiquement l'affichage du Welcome Screen
       home: FutureBuilder<bool>(
         future: WelcomeCharacterScreen.doitAfficher(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(color: kPrimaryColor),
-              ),
-            );
-          }
-          return snapshot.data == true
+        builder: (context, snap) {
+          if (!snap.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator(color: kPrimaryColor)));
+          return snap.data == true
               ? const WelcomeCharacterScreen()
               : const AppScreenWrapper();
         },
@@ -115,26 +109,26 @@ class ShokugekiMenuApp extends StatelessWidget {
     );
   }
 }
-
+ 
 class AppScreenWrapper extends StatefulWidget {
   const AppScreenWrapper({super.key});
-
+ 
   @override
   State<AppScreenWrapper> createState() => _AppScreenWrapperState();
 }
-
+ 
 class _AppScreenWrapperState extends State<AppScreenWrapper> {
   final AuthService _authService = AuthService();
   bool _isCheckingStatus = true;
   bool _isAppActive = true;
   String _blockingMessage = "Application temporairement inaccessible.";
-
+ 
   @override
   void initState() {
     super.initState();
     _controlerActivationApplication();
   }
-
+ 
   Future<void> _controlerActivationApplication() async {
     try {
       final statut = await _authService.verifierStatutApplication();
@@ -149,13 +143,14 @@ class _AppScreenWrapperState extends State<AppScreenWrapper> {
       debugPrint("Erreur vérification statut : $e");
       if (mounted) {
         setState(() {
+          // FIX : erreur réseau = on laisse passer, pas bloquer
           _isAppActive = true;
           _isCheckingStatus = false;
         });
       }
     }
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     if (_isCheckingStatus) {
@@ -181,19 +176,19 @@ class _AppScreenWrapperState extends State<AppScreenWrapper> {
         ),
       );
     }
-
+ 
     if (!_isAppActive) {
       return AppBlockScreen(message: _blockingMessage);
     }
-
+ 
     return const AuthGatewayRouter();
   }
 }
-
+ 
 class AppBlockScreen extends StatelessWidget {
   final String message;
   const AppBlockScreen({super.key, required this.message});
-
+ 
   Future<void> _contacterNagato() async {
     final cleanPhone = kDeveloperPhone.replaceAll(RegExp(r'[^\d+]'), '');
     final customText = Uri.encodeComponent(
@@ -204,7 +199,7 @@ class AppBlockScreen extends StatelessWidget {
       debugPrint("Impossible de lancer WhatsApp");
     }
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -264,24 +259,24 @@ class AppBlockScreen extends StatelessWidget {
     );
   }
 }
-
+ 
 class AuthGatewayRouter extends StatefulWidget {
   const AuthGatewayRouter({super.key});
-
+ 
   @override
   State<AuthGatewayRouter> createState() => _AuthGatewayRouterState();
 }
-
+ 
 class _AuthGatewayRouterState extends State<AuthGatewayRouter> {
   String? _cachedStaffRole;
   bool _isLoadingCache = true;
-
+ 
   @override
   void initState() {
     super.initState();
     _chargerSessionPersonnel();
   }
-
+ 
   Future<void> _chargerSessionPersonnel() async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -297,18 +292,18 @@ class _AuthGatewayRouterState extends State<AuthGatewayRouter> {
       if (mounted) setState(() => _isLoadingCache = false);
     }
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     if (_isLoadingCache) {
       return const Scaffold(
           body: Center(child: CircularProgressIndicator(color: kPrimaryColor)));
     }
-
+ 
     if (_cachedStaffRole != null) {
       return _routerVersEcranPersonnel(_cachedStaffRole!);
     }
-
+ 
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
@@ -323,7 +318,8 @@ class _AuthGatewayRouterState extends State<AuthGatewayRouter> {
       },
     );
   }
-
+ 
+  // ✅ FIX CRITIQUE : utilise DirectorDashboardScreen (nom réel de la classe)
   Widget _routerVersEcranPersonnel(String role) {
     switch (role.trim().toLowerCase()) {
       case 'directeur':
@@ -339,16 +335,16 @@ class _AuthGatewayRouterState extends State<AuthGatewayRouter> {
     }
   }
 }
-
+ 
 class ShokugekiRestaurantInfoView extends StatelessWidget {
   const ShokugekiRestaurantInfoView({super.key});
-
+ 
   Future<void> _lancerUrl(Uri url) async {
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       debugPrint("Impossible d'ouvrir : $url");
     }
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -390,7 +386,7 @@ class ShokugekiRestaurantInfoView extends StatelessWidget {
       ),
     );
   }
-
+ 
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
       children: [
@@ -412,3 +408,4 @@ class ShokugekiRestaurantInfoView extends StatelessWidget {
     );
   }
 }
+ 
