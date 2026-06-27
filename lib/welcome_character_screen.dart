@@ -31,14 +31,10 @@ class _WelcomeCharacterScreenState extends State<WelcomeCharacterScreen>
   bool _showBtn = false;
 
   final List<String> _msgs = [
-    "Irasshaimase ! 🌀
-Uchiwa Nagato te souhaite la bienvenue !",
-    "Cette app a été forgée
-dans la solitude et le code. ⚡",
-    "Commande tes plats préférés
-en quelques secondes. 🍜",
-    "Livraison, sur place...
-Ton choix. Notre mission. 🛵",
+    'Irasshaimase ! \u{1F300}\nUchiwa Nagato te souhaite la bienvenue !',
+    'Cette app a ete forgee\ndans la solitude et le code. \u26A1',
+    'Commande tes plats preferes\nen quelques secondes. \u{1F35C}',
+    'Livraison, sur place...\nTon choix. Notre mission. \u{1F6F5}',
   ];
 
   @override
@@ -106,7 +102,6 @@ Ton choix. Notre mission. 🛵",
         SafeArea(
           child: Column(children: [
             const Spacer(flex: 1),
-
             AnimatedBuilder(
               animation: _glowAnim,
               builder: (_, __) => Container(
@@ -116,12 +111,10 @@ Ton choix. Notre mission. 🛵",
                   borderRadius: BorderRadius.circular(30),
                   color: const Color(0xFFCC0000).withOpacity(0.05),
                 ),
-                child: const Text('🌀  SHOKUGEKI MENU', style: TextStyle(color: Color(0xFFCC0000), fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 3)),
+                child: const Text('\u{1F300}  SHOKUGEKI MENU', style: TextStyle(color: Color(0xFFCC0000), fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 3)),
               ),
             ),
-
             const Spacer(flex: 1),
-
             AnimatedBuilder(
               animation: _floatAnim,
               builder: (_, __) => Transform.translate(
@@ -146,7 +139,7 @@ Ton choix. Notre mission. 🛵",
                           errorBuilder: (_, __, ___) => Container(
                             width: 130, height: 130,
                             decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF110015), border: Border.all(color: const Color(0xFFCC0000), width: 2)),
-                            child: const Center(child: Text('🌀', style: TextStyle(fontSize: 50))),
+                            child: const Center(child: Text('\u{1F300}', style: TextStyle(fontSize: 50))),
                           ),
                         ),
                       ),
@@ -155,9 +148,7 @@ Ton choix. Notre mission. 🛵",
                 ),
               ),
             ),
-
             const SizedBox(height: 28),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
@@ -170,7 +161,8 @@ Ton choix. Notre mission. 🛵",
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    Container(width: 8, height: 8,
+                    Container(
+                      width: 8, height: 8,
                       decoration: BoxDecoration(
                         color: _typing ? const Color(0xFFCC0000) : Colors.green,
                         shape: BoxShape.circle,
@@ -178,8 +170,10 @@ Ton choix. Notre mission. 🛵",
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(_typing ? 'Uchiwa Nagato écrit...' : '🌀 Uchiwa Nagato',
-                      style: TextStyle(color: _typing ? const Color(0xFFCC0000) : Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                    Text(
+                      _typing ? 'Uchiwa Nagato ecrit...' : '\u{1F300} Uchiwa Nagato',
+                      style: TextStyle(color: _typing ? const Color(0xFFCC0000) : Colors.green, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
                   ]),
                   const SizedBox(height: 10),
                   Text(_text, style: const TextStyle(color: Colors.white, fontSize: 17, height: 1.5, fontWeight: FontWeight.w500)),
@@ -187,9 +181,7 @@ Ton choix. Notre mission. 🛵",
                 ]),
               ),
             ),
-
             const SizedBox(height: 16),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_msgs.length, (i) {
@@ -205,9 +197,7 @@ Ton choix. Notre mission. 🛵",
                 );
               }),
             ),
-
             const Spacer(flex: 2),
-
             if (_showBtn)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -229,20 +219,18 @@ Ton choix. Notre mission. 🛵",
                           boxShadow: [BoxShadow(color: const Color(0xFFCC0000).withOpacity(_glowAnim.value * 0.6), blurRadius: 30, offset: const Offset(0, 8))],
                         ),
                         child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Text('⚡  ENTRER DANS L'APP', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                          Text('\u26A1  ENTRER DANS L\u2019APP', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1)),
                         ]),
                       ),
                     ),
                   ),
                 ),
               ),
-
             if (!_showBtn)
               GestureDetector(
                 onTap: _commencer,
                 child: const Padding(padding: EdgeInsets.all(16), child: Text('Passer', style: TextStyle(color: Colors.white30, fontSize: 14))),
               ),
-
             const SizedBox(height: 32),
           ]),
         ),
@@ -272,9 +260,10 @@ class _OrbitRingState extends State<_OrbitRing> with SingleTickerProviderStateMi
         child: Container(
           width: widget.size, height: widget.size,
           decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: widget.color.withOpacity(0.25), width: 1.5)),
-          child: Align(alignment: Alignment.topCenter,
-            child: Container(width: 8, height: 8,
-              decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle, boxShadow: [BoxShadow(color: widget.color, blurRadius: 8)]))),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Container(width: 8, height: 8, decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle, boxShadow: [BoxShadow(color: widget.color, blurRadius: 8)])),
+          ),
         ),
       ),
     );

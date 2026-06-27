@@ -245,7 +245,9 @@ class _NagatoHero extends StatelessWidget {
               // Fallback si l'image n'est pas encore dans les assets
               errorBuilder: (_, __, ___) => Container(
                 color: kSurfaceColor,
-                child: const Icon(Icons.code_rounded, size: 48, color: kPrimaryColor),
+                child: Image.asset('assets/images/nagato_avatar.png', width: 100, height: 100, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const Icon(Icons.code_rounded, size: 48, color: kPrimaryColor),
+            ),
               ),
             ),
           ),
