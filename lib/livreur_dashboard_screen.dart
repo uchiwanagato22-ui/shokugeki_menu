@@ -24,7 +24,15 @@ class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
   Future<void> _appeler(String tel) async {
     if (tel.isEmpty) return;
     final uri = Uri(scheme: 'tel', path: tel.replaceAll(' ', ''));
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        _snack("❌ Impossible de lancer l'appel", Colors.red);
+      }
+    } catch (e) {
+      _snack("❌ Erreur lors de l'appel : $e", Colors.red);
+    }
   }
 
   Future<void> _ouvrirMaps(Map<String, dynamic> data) async {
@@ -32,29 +40,50 @@ class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
     final lng = (data['longitude'] as num?)?.toDouble() ?? 0.0;
     final zone = data['zone']?.toString() ?? data['quartier']?.toString() ?? '';
     final reperes = data['adresse_reperes']?.toString() ?? '';
-    final uri = (lat != 0.0 && lng != 0.0)
+
+    // ✅ URLs officielles et standardisées pour ouvrir directement l'application Google Maps
+    final Uri uri = (lat != 0.0 && lng != 0.0)
         ? Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng')
-        : Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent('$zone $reperes Nouakchott')}');
-    if (await canLaunchUrl(uri)) await launchUrl(uri);
+        : Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent("$zone $reperes Nouakchott")}');
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        _snack('❌ Impossible d\'ouvrir Google Maps', Colors.red);
+      }
+    } catch (e) {
+      _snack('❌ Erreur de navigation : $e', Colors.red);
+    }
   }
 
   Future<void> _marquerEnRoute(String docId) async {
-    await _db.collection(AppConfig.commandes).doc(docId).update({
-      'statut': 'en_livraison',
-      'pickup_at': FieldValue.serverTimestamp(),
-      'updated_at': FieldValue.serverTimestamp(),
-    });
-    _snack('🛵 En route !', Colors.teal);
+    try {
+      await _db.collection(AppConfig.commandes).doc(docId).update({
+        'statut': 'en_livraison',
+        'pickup_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      _snack('🛵 En route ! Bonne course !', Colors.teal);
+    } catch (e) {
+      _snack('❌ Erreur de mise à jour : $e', Colors.red);
+    }
   }
 
   Future<void> _marquerLivree(String docId) async {
-    await _db.collection(AppConfig.commandes).doc(docId).update({
-      'statut': 'livree',
-      'delivered_at': FieldValue.serverTimestamp(),
-      'updated_at': FieldValue.serverTimestamp(),
-    });
-    setState(() => _livreesSession++);
-    _snack('🎉 Livrée ! Bravo !', Colors.green);
+    try {
+      await _db.collection(AppConfig.commandes).doc(docId).update({
+        'statut': 'livree',
+        'delivered_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      setState(() => _livreesSession++);
+      _snack('🎉 Livrée ! Bravo !', Colors.green);
+    } catch (e) {
+      _snack('❌ Erreur de validation : $e', Colors.red);
+    }
   }
 
   Future<void> _deconnecter() async {
@@ -97,7 +126,27 @@ class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
               .where('statut', whereIn: ['pret', 'pret_pour_livraison', 'en_livraison'])
               .snapshots(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Erreur Firebase Livreur : ${snapshot.error}',
+                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
             final docs = snapshot.data!.docs;
 
             // Séparer prêtes et en route
@@ -217,8 +266,7 @@ class _LivraisonCard extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-            // Infos client — COMPLÈTES
+            // Infos client
             _Row(Icons.person_rounded, nom, bold: true),
             if (tel.isNotEmpty) GestureDetector(
               onTap: onAppeler,
@@ -240,6 +288,8 @@ class _LivraisonCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                     child: imgUrl.isNotEmpty
                         ? CachedNetworkImage(imageUrl: imgUrl, width: 40, height: 40, fit: BoxFit.cover,
+                            placeholder: (_, __) => Container(width: 40, height: 40, color: Colors.grey.shade100,
+                                child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),
                             errorWidget: (_, __, ___) => _fallbackImg())
                         : _fallbackImg(),
                   ),
@@ -334,6 +384,7 @@ class _MiniStat extends StatelessWidget {
   const _MiniStat({required this.label, required this.value, required this.color});
   @override
   Widget build(BuildContext context) => Container(
+    width: double.infinity,
     padding: const EdgeInsets.symmetric(vertical: 10),
     decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(10), border: Border.all(color: color.withOpacity(0.2))),
     child: Column(children: [

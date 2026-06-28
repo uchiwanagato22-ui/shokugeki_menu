@@ -20,13 +20,17 @@ class _CuisineScreenState extends State<CuisineScreen> {
   final _db = FirebaseFirestore.instance;
 
   Future<void> _marquerPret(String docId) async {
-    await _db.collection(AppConfig.commandes).doc(docId).update({
-      'statut': 'pret',
-      'kitchen_done_at': FieldValue.serverTimestamp(),
-      'updated_at': FieldValue.serverTimestamp(),
-    });
-    if (!mounted) return;
-    _snack('✅ Commande prête — livreur notifié !', Colors.green);
+    try {
+      await _db.collection(AppConfig.commandes).doc(docId).update({
+        'statut': 'pret',
+        'kitchen_done_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      _snack('✅ Commande prête — livreur notifié !', Colors.green);
+    } catch (e) {
+      _snack('❌ Erreur lors de la mise à jour : $e', Colors.red);
+    }
   }
 
   Future<void> _deconnecter() async {
@@ -67,7 +71,28 @@ class _CuisineScreenState extends State<CuisineScreen> {
         StreamBuilder<QuerySnapshot>(
           stream: _db.collection(AppConfig.commandes).where('statut', isEqualTo: 'en_cuisine').snapshots(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            // ✅ Sécurité : Affichage direct si Firebase renvoie une erreur d'index ou de droits
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Erreur Firebase Cuisine : ${snapshot.error}',
+                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
             final docs = snapshot.data!.docs;
 
             return Column(children: [
@@ -145,7 +170,7 @@ class _KitchenTicket extends StatelessWidget {
           ]),
         ),
 
-        // Articles avec images — LE GROS UPGRADE
+        // Articles avec images
         Padding(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -167,7 +192,7 @@ class _KitchenTicket extends StatelessWidget {
                   border: Border.all(color: Colors.orange.shade100),
                 ),
                 child: Row(children: [
-                  // Image du plat
+                  // Image du plat avec CachedNetworkImage
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: imgUrl.isNotEmpty

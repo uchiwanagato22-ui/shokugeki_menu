@@ -21,13 +21,17 @@ class _CaissierDashboardScreenState extends State<CaissierDashboardScreen> {
   int _traitees = 0;
 
   Future<void> _valider(String docId) async {
-    await _db.collection(AppConfig.commandes).doc(docId).update({
-      'statut': 'en_cuisine',
-      'validated_at': FieldValue.serverTimestamp(),
-      'updated_at': FieldValue.serverTimestamp(),
-    });
-    setState(() => _traitees++);
-    _snack('✅ Envoyée en cuisine !', Colors.green);
+    try {
+      await _db.collection(AppConfig.commandes).doc(docId).update({
+        'statut': 'en_cuisine',
+        'validated_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+      setState(() => _traitees++);
+      _snack('✅ Envoyée en cuisine !', Colors.green);
+    } catch (e) {
+      _snack('❌ Erreur lors de la validation : $e', Colors.red);
+    }
   }
 
   Future<void> _rejeter(String docId) async {
@@ -49,11 +53,15 @@ class _CaissierDashboardScreenState extends State<CaissierDashboardScreen> {
       ),
     );
     if (ok != true) return;
-    await _db.collection(AppConfig.commandes).doc(docId).update({
-      'statut': 'rejete',
-      'updated_at': FieldValue.serverTimestamp(),
-    });
-    _snack('Commande rejetée', Colors.orange);
+    try {
+      await _db.collection(AppConfig.commandes).doc(docId).update({
+        'statut': 'rejete',
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+      _snack('Commande rejetée', Colors.orange);
+    } catch (e) {
+      _snack('❌ Erreur lors du rejet : $e', Colors.red);
+    }
   }
 
   Future<void> _deconnecter() async {
@@ -94,7 +102,28 @@ class _CaissierDashboardScreenState extends State<CaissierDashboardScreen> {
         StreamBuilder<QuerySnapshot>(
           stream: _db.collection(AppConfig.commandes).where('statut', isEqualTo: 'en_attente').snapshots(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            // ✅ Sécurité : Si Firebase renvoie une erreur, on l'affiche au lieu de tourner dans le vide
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'Erreur Firebase : ${snapshot.error}',
+                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
             final docs = snapshot.data!.docs;
 
             return Column(children: [
