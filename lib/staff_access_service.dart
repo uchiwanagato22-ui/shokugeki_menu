@@ -69,5 +69,3 @@ class StaffAccessService {
     return const StaffAccessResult(allowed: false, errorMessage: 'Code incorrect ou désactivé.');
   }
 }
-
-void debugPrint(String msg) => print(msg);

@@ -1,3 +1,4 @@
+import 'app_config.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -62,7 +63,7 @@ class AuthService {
   Future<String?> connecterPersonnel(String codeSecret) async {
     try {
       QuerySnapshot snapshot = await _db
-          .collection('personnel')
+          .collection(AppConfig.personnel)
           .where('code_secret', isEqualTo: codeSecret)
           .get();
 

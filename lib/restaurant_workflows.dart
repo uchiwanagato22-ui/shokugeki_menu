@@ -1,3 +1,4 @@
+import 'app_config.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -34,7 +35,7 @@ class KitchenDashboard extends StatelessWidget {
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('commandes')
+            .collection(AppConfig.commandes)
             .where('statut', isEqualTo: 'en_cuisine')
             .snapshots(),
         builder: (context, snapshot) {
@@ -95,7 +96,7 @@ class KitchenDashboard extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: () async {
                           await FirebaseFirestore.instance
-                              .collection('commandes')
+                              .collection(AppConfig.commandes)
                               .doc(commande.id)
                               .update({'statut': 'pret_pour_livraison'});
                         },
@@ -131,7 +132,7 @@ class CaissierDashboard extends StatelessWidget {
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('commandes')
+            .collection(AppConfig.commandes)
             .where('statut', isEqualTo: 'en_attente')
             .snapshots(),
         builder: (context, snapshot) {
@@ -176,7 +177,7 @@ class CaissierDashboard extends StatelessWidget {
                                     icon: const Icon(Icons.check_circle, color: Colors.green),
                                     onPressed: () async {
                                       await FirebaseFirestore.instance
-                                          .collection('commandes')
+                                          .collection(AppConfig.commandes)
                                           .doc(commande.id)
                                           .update({'statut': 'en_cuisine'});
                                     },
@@ -185,7 +186,7 @@ class CaissierDashboard extends StatelessWidget {
                                     icon: const Icon(Icons.cancel, color: Colors.redAccent),
                                     onPressed: () async {
                                       await FirebaseFirestore.instance
-                                          .collection('commandes')
+                                          .collection(AppConfig.commandes)
                                           .doc(commande.id)
                                           .update({'statut': 'rejete'});
                                     },

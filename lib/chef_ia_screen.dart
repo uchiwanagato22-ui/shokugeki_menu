@@ -1,3 +1,4 @@
+import 'app_config.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'branding_service.dart';
@@ -38,7 +39,7 @@ class _ChefIaScreenState extends State<ChefIaScreen> {
 
   void _chargerMenuDepuisFirestore() async {
     try {
-      final snapshot = await FirebaseFirestore.instance.collection('menu').get();
+      final snapshot = await FirebaseFirestore.instance.collection(AppConfig.menu).get();
       setState(() {
         _vraisPlats = snapshot.docs.map((doc) {
           final data = doc.data();

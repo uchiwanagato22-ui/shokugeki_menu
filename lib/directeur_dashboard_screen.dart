@@ -409,7 +409,7 @@ class _TabMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: db.collection('menu').orderBy('updated_at', descending: true).snapshots(),
+      stream: db.collection(AppConfig.menu).orderBy('updated_at', descending: true).snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final docs = snapshot.data!.docs;
