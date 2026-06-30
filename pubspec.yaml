@@ -46,4 +46,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-assets/images/nagato_avatar.png
+  # Déclaration correcte de tes assets
+  assets:
+    - assets/images/nagato_avatar.png
