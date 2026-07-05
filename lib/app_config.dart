@@ -21,6 +21,7 @@ class AppConfig {
   static String get staffCodes => '$basePath/staffCodes';
   static String get config => '$basePath/config';
   static String get promotions => '$basePath/promotions';
+  static String get clients => '$basePath/clients';
   static String get utilisateurs => 'utilisateurs'; // global (partagé)
   static String get statut => 'statut'; // global (kill switch)
 }

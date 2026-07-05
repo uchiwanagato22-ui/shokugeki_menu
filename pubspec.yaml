@@ -20,6 +20,7 @@ dependencies:
   firebase_auth: ^6.5.2
   firebase_storage: ^13.1.0
   firebase_messaging: ^16.1.2
+  cloud_functions: ^6.3.2
 
   # Photos & Notifications
   image_picker: ^1.1.2

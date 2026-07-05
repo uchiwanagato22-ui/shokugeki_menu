@@ -1,14 +1,22 @@
 import 'package:flutter/foundation.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'app_config.dart';
 import 'restaurant_app_config.dart';
 
 // ═══════════════════════════════════════════════════════
-//  STAFF ACCESS SERVICE — Multi-tenant v2 (CORRIGÉ)
-//  ✅ Lit les codes dans restaurants/{id}/staffCodes/
-//  ✅ Gère le paramètre optionnel ou le fallback par défaut
-//  ✅ Fallback sur codes hardcodés si Firestore indispo
+//  STAFF ACCESS SERVICE — Multi-tenant v3 (sécurisé)
+//  ✅ Ne lit plus JAMAIS "staffCodes" directement depuis le
+//     téléphone : tout passe par la Cloud Function
+//     "verifyStaffCode", qui tourne côté serveur.
+//  ✅ Ouvre une vraie session Firebase Auth (avec le rôle et le
+//     restaurant comme "claims") après un code valide, pour que
+//     les règles Firestore puissent enfin protéger le menu, les
+//     commandes, les promos, etc. selon le rôle réel du staff.
+//  ⚠️ Le fallback "codes en dur dans l'app" a été retiré : il
+//     rendait cette correction inutile (n'importe qui aurait pu
+//     décompiler l'app et retrouver les codes quand même).
 // ═══════════════════════════════════════════════════════
 
 class StaffAccessResult {
@@ -25,22 +33,20 @@ class StaffAccessResult {
   final String? errorMessage;
 }
 
-
 class StaffAccessService {
-  StaffAccessService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  StaffAccessService({FirebaseFunctions? functions, FirebaseAuth? auth})
+      : _functions = functions ?? FirebaseFunctions.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
-  final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
+  final FirebaseAuth _auth;
 
-
-  // Vérification code personnel
+  // Vérification code personnel — via Cloud Function (sécurisé)
   Future<StaffAccessResult> verifyCode({
     String? restaurantId,
     required String code,
   }) async {
-
     final normalizedCode = code.trim();
-
 
     if (!RegExp(r'^\d{4}$').hasMatch(normalizedCode)) {
       return const StaffAccessResult(
@@ -49,79 +55,58 @@ class StaffAccessService {
       );
     }
 
+    final targetId = restaurantId ?? AppConfig.restaurantId;
 
     try {
+      final callable = _functions.httpsCallable('verifyStaffCode');
+      final response = await callable.call(<String, dynamic>{
+        'restaurantId': targetId,
+        'code': normalizedCode,
+      });
 
-      final targetId = restaurantId ?? AppConfig.restaurantId;
+      final data = Map<String, dynamic>.from(response.data as Map);
+      final role = staffRoleFromFirestore((data['role'] ?? '').toString());
 
-
-      final query = await _firestore
-          .collection('restaurants')
-          .doc(targetId)
-          .collection('staffCodes')
-          .where('code', isEqualTo: normalizedCode)
-          .where('active', isEqualTo: true)
-          .limit(1)
-          .get();
-
-
-      if (query.docs.isNotEmpty) {
-
-        final data = query.docs.first.data();
-
-
-        final role = staffRoleFromFirestore(
-          (data['role'] ?? '').toString(),
-        );
-
-
-        if (role == null) {
-          return const StaffAccessResult(
-            allowed: false,
-            errorMessage: 'Rôle invalide.',
-          );
-        }
-
-
-        return StaffAccessResult(
-          allowed: true,
-          role: role,
-          staffName: data['name']?.toString(),
-        );
+      if (role == null) {
+        return const StaffAccessResult(allowed: false, errorMessage: 'Rôle invalide.');
       }
 
-
-    } catch (e) {
-
-      debugPrint(
-        'StaffAccessService Firestore error: $e',
-      );
-
-      // Firestore indisponible → fallback
-    }
-
-
-
-    // Fallback codes locaux
-    final fallbackRole = defaultStaffCodes[normalizedCode];
-
-
-    if (fallbackRole != null) {
+      // On échange le jeton temporaire contre une vraie session Firebase.
+      // Sans ça, les écritures du staff (menu, commandes...) seraient
+      // encore vues par Firestore comme venant d'un simple visiteur.
+      final token = data['authToken']?.toString();
+      if (token != null && token.isNotEmpty) {
+        await _auth.signInWithCustomToken(token);
+      }
 
       return StaffAccessResult(
         allowed: true,
-        role: fallbackRole,
-        staffName: fallbackRole.label,
+        role: role,
+        staffName: data['staffName']?.toString(),
       );
-
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('StaffAccessService Cloud Function error: ${e.code} ${e.message}');
+      if (e.code == 'resource-exhausted') {
+        return StaffAccessResult(allowed: false, errorMessage: e.message);
+      }
+      return const StaffAccessResult(
+        allowed: false,
+        errorMessage: 'Code incorrect ou désactivé.',
+      );
+    } catch (e) {
+      debugPrint('StaffAccessService error: $e');
+      return const StaffAccessResult(
+        allowed: false,
+        errorMessage: 'Connexion impossible. Vérifiez votre connexion internet.',
+      );
     }
+  }
 
-
-
-    return const StaffAccessResult(
-      allowed: false,
-      errorMessage: 'Code incorrect ou désactivé.',
-    );
-
+  // À appeler quand le staff quitte son espace (retour à l'accueil,
+  // changement de rôle...) pour fermer la session Firebase ouverte.
+  Future<void> signOut() async {
+    try {
+      await _auth.signOut();
+    } catch (_) {}
   }
 }

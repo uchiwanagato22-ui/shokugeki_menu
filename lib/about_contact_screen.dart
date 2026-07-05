@@ -111,6 +111,51 @@ class _AboutContactScreenState extends State<AboutContactScreen>
               ]),
               const SizedBox(height: 28),
 
+              // ── Notre histoire ───────────────────────────────
+              _SectionLabel(label: 'NOTRE HISTOIRE'),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0A0012),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    const Text('🍜', style: TextStyle(fontSize: 22)),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text('Comment Shokugeki Menu est né',
+                          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Tout a commencé à Nouakchott, avec une question simple : pourquoi les restaurants ici '
+                    'devraient-ils payer des fortunes pour des applications importées, mal adaptées à la réalité '
+                    'mauritanienne ?\n\n'
+                    'Uchiwa Nagato a construit Shokugeki Menu de zéro — une application pensée pour les restaurants '
+                    'd\'ici : commandes en ligne, livraison, caisse, cuisine, et une IA qui aide même à gérer le '
+                    'business. Shokugeki (le premier restaurant à utiliser l\'app) a servi de test grandeur nature.\n\n'
+                    'Aujourd\'hui, cette même application peut être adaptée à votre restaurant, avec votre nom, '
+                    'votre logo et vos couleurs — en 48h.',
+                    style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.6),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(spacing: 10, runSpacing: 10, children: [
+                    _ContactChip(icon: Icons.phone_rounded, label: kDeveloperPhone, onTap: () {
+                      _ouvrirUrl(Uri(scheme: 'tel', path: kDeveloperPhone.replaceAll(' ', '')));
+                    }),
+                    _ContactChip(icon: Icons.email_rounded, label: kDeveloperEmail, onTap: () {
+                      _ouvrirUrl(Uri(scheme: 'mailto', path: kDeveloperEmail));
+                    }),
+                    _ContactChip(icon: Icons.location_on_rounded, label: kDeveloperAddress, onTap: null),
+                  ]),
+                ]),
+              ),
+              const SizedBox(height: 28),
+
               // ── Services ─────────────────────────────────────
               _SectionLabel(label: 'NOS SERVICES'),
               const SizedBox(height: 14),
@@ -204,6 +249,19 @@ class _AboutContactScreenState extends State<AboutContactScreen>
                         label: const Text('Appel direct', style: TextStyle(color: Colors.white70, fontSize: 14)),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity, height: 46,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _ouvrirUrl(Uri(scheme: 'mailto', path: kDeveloperEmail)),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.white.withOpacity(0.15)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        icon: const Icon(Icons.email_rounded, color: Colors.white70),
+                        label: Text(kDeveloperEmail, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                      ),
+                    ),
                   ]),
                 ),
               ),
@@ -271,6 +329,33 @@ class _NagatoHero extends StatelessWidget {
 }
 
 // ── Widgets ───────────────────────────────────────────────────────────────────
+
+class _ContactChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  const _ContactChip({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: kPrimaryColor, size: 14),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11.5)),
+        ]),
+      ),
+    );
+  }
+}
 
 class _SectionLabel extends StatelessWidget {
   final String label;

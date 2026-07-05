@@ -10,6 +10,7 @@ import 'widgets/developer_contact_button.dart';
 import 'app_config.dart';
 import 'constants.dart';
 import 'login_screen.dart';
+import 'loyalty_service.dart';
 
 class LivreurDashboardScreen extends StatefulWidget {
   const LivreurDashboardScreen({super.key});
@@ -71,7 +72,7 @@ class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
     }
   }
 
-  Future<void> _marquerLivree(String docId) async {
+  Future<void> _marquerLivree(String docId, Map<String, dynamic> data) async {
     try {
       await _db.collection(AppConfig.commandes).doc(docId).update({
         'statut': 'livree',
@@ -81,6 +82,14 @@ class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
       if (!mounted) return;
       setState(() => _livreesSession++);
       _snack('🎉 Livrée ! Bravo !', Colors.green);
+
+      // Programme fidélité : on crédite les points du client, sans bloquer
+      // l'écran si ça échoue (ce n'est jamais bloquant pour la livraison).
+      final clientId = data['clientId']?.toString() ?? '';
+      final total = (data['total'] as num?)?.toDouble() ?? 0;
+      LoyaltyService.instance
+          .crediterPointsPourCommande(commandeId: docId, clientId: clientId, total: total)
+          .catchError((_) {});
     } catch (e) {
       _snack('❌ Erreur de validation : $e', Colors.red);
     }
@@ -189,7 +198,7 @@ class _LivreurDashboardScreenState extends State<LivreurDashboardScreen> {
                     docId: doc.id, data: doc.data() as Map<String, dynamic>,
                     onAppeler: () => _appeler(_getTel(doc.data() as Map<String, dynamic>)),
                     onMaps: () => _ouvrirMaps(doc.data() as Map<String, dynamic>),
-                    onAction: () => _marquerLivree(doc.id),
+                    onAction: () => _marquerLivree(doc.id, doc.data() as Map<String, dynamic>),
                     actionLabel: '✅ Livraison confirmée',
                     actionColor: Colors.green,
                   )),

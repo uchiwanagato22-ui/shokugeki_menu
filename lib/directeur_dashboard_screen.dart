@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'director_ia_service.dart';
+import 'firestore_service.dart';
 import 'premium_staff_widgets.dart';
 import 'restaurant_setup_seed.dart';
 import 'widgets/developer_contact_button.dart';
@@ -509,7 +510,7 @@ class _TabAjout extends StatelessWidget {
         const SizedBox(height: 10),
         _ChampTexte(controller: prixController, label: 'Prix (MRU)', icon: Icons.payments, type: TextInputType.number),
         const SizedBox(height: 10),
-        _ChampTexte(controller: categorieController, label: 'Catégorie', icon: Icons.category),
+        _ChampCategorie(controller: categorieController),
         const SizedBox(height: 10),
         _ChampTexte(controller: descController, label: 'Description courte', icon: Icons.notes, maxLines: 2),
         const SizedBox(height: 12),
@@ -809,6 +810,63 @@ class _ChampTexte extends StatelessWidget {
   }
 }
 
+// ── Champ catégorie avec suggestions ────────────────────
+// Pourquoi : sans ça, un directeur qui tape "Pizza" une fois puis
+// "Pizzas" une autre fois se retrouve avec 2 catégories différentes
+// dans son menu (et 2 onglets pour le client, au lieu d'un seul).
+// On lui propose donc directement ses catégories déjà utilisées.
+class _ChampCategorie extends StatelessWidget {
+  final TextEditingController controller;
+  const _ChampCategorie({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ChampTexte(controller: controller, label: 'Catégorie', icon: Icons.category),
+        StreamBuilder<List<Map<String, dynamic>>>(
+          stream: FirestoreService().obtenirMenuTempsReel(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const SizedBox.shrink();
+            final vues = <String>{};
+            for (final plat in snapshot.data!) {
+              final cat = (plat['categorie']?.toString() ?? '').trim();
+              if (cat.isNotEmpty) vues.add(cat);
+            }
+            if (vues.isEmpty) return const SizedBox.shrink();
+
+            return Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: vues.map((cat) {
+                  return GestureDetector(
+                    onTap: () {
+                      controller.text = cat;
+                      controller.selection = TextSelection.collapsed(offset: cat.length);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Text(cat, style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+                    ),
+                  );
+                }).toList(),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
 class _MiniStat extends StatelessWidget {
   final String label, value;
   final Color color;
@@ -817,12 +875,23 @@ class _MiniStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-      decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(10), border: Border.all(color: color.withOpacity(0.2))),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color.withOpacity(0.16), color.withOpacity(0.04)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.25)),
+        boxShadow: [
+          BoxShadow(color: color.withOpacity(0.12), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
       child: Column(children: [
-        Text(value, style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 2),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10), textAlign: TextAlign.center),
+        Text(value, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.3)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10.5, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
       ]),
     );
   }

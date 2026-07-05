@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'app_config.dart';
 import 'constants.dart';
+import 'menu_rating_service.dart';
 
 // ═══════════════════════════════════════════════════════
 //  MES COMMANDES — v2 (CORRIGÉ MULTI-TENANT)
@@ -24,7 +25,7 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
   final String? _uid = FirebaseAuth.instance.currentUser?.uid;
   final Set<String> _notationsDemandees = {};
 
-  Future<void> _noterCommande(String docId, int note) async {
+  Future<void> _noterCommande(String docId, int note, List<dynamic> articles) async {
     // CORRECTION : Chemin mis à jour vers la sous-collection du restaurant
     await FirebaseFirestore.instance
         .collection('restaurants')
@@ -33,13 +34,17 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
         .doc(docId)
         .update({'note': note, 'updated_at': FieldValue.serverTimestamp()});
 
+    // On répercute aussi cette note sur chaque plat commandé, pour
+    // afficher une moyenne ⭐ sur le menu (utile aux autres clients).
+    MenuRatingService().noterPlatsDeCommande(note, articles).catchError((_) {});
+
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Merci pour votre note ! ⭐'), backgroundColor: Colors.green),
     );
   }
 
-  void _afficherNotation(String docId) {
+  void _afficherNotation(String docId, List<dynamic> articles) {
     int note = 5;
     showDialog(
       context: context,
@@ -69,7 +74,7 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Plus tard', style: TextStyle(color: Colors.grey))),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: kPrimaryColor),
-              onPressed: () { _noterCommande(docId, note); Navigator.pop(ctx); },
+              onPressed: () { _noterCommande(docId, note, articles); Navigator.pop(ctx); },
               child: const Text('Envoyer', style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -144,7 +149,7 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
               // Notation auto après livraison
               if (statut == 'livree' && note == null && !_notationsDemandees.contains(doc.id)) {
                 _notationsDemandees.add(doc.id);
-                WidgetsBinding.instance.addPostFrameCallback((_) => _afficherNotation(doc.id));
+                WidgetsBinding.instance.addPostFrameCallback((_) => _afficherNotation(doc.id, articles));
               }
 
               return _CommandeCard(
@@ -156,7 +161,7 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
                 paiement: paiement,
                 articles: articles,
                 note: note,
-                onNoter: () => _afficherNotation(doc.id),
+                onNoter: () => _afficherNotation(doc.id, articles),
               );
             },
           );

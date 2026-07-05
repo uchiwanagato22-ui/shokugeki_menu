@@ -130,12 +130,11 @@ class RestaurantAppConfig {
 
 const String defaultRestaurantId = 'shokugeki';
 
-const Map<String, StaffRole> defaultStaffCodes = {
-  '3265': StaffRole.caissier,
-  '2300': StaffRole.livreur,
-  '6523': StaffRole.directeur,
-  '1955': StaffRole.cuisine,
-};
+// ⚠️ L'ancienne table "defaultStaffCodes" (fallback local si Firestore
+// était indisponible) a été retirée : elle exposait les codes staff
+// en clair dans le binaire de l'app, ce qui rendait inutile toute
+// protection côté serveur. La vérification passe maintenant TOUJOURS
+// par la Cloud Function "verifyStaffCode" (voir staff_access_service.dart).
 
 const Map<StaffRole, String> defaultStaffCodeByRole = {
   StaffRole.caissier: '3265',

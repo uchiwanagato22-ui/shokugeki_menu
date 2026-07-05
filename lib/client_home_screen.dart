@@ -9,6 +9,7 @@ import 'constants.dart';
 import 'login_screen.dart';
 import 'notification_service.dart';
 import 'widgets/developer_contact_button.dart';
+import 'widgets/loyalty_badge.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   const ClientHomeScreen({super.key});
@@ -17,14 +18,25 @@ class ClientHomeScreen extends StatefulWidget {
   State<ClientHomeScreen> createState() => _ClientHomeScreenState();
 }
 
-class _ClientHomeScreenState extends State<ClientHomeScreen> {
+class _ClientHomeScreenState extends State<ClientHomeScreen> with SingleTickerProviderStateMixin {
   int _index = 0;
   final List<Map<String, dynamic>> _cartItems = [];
+
+  late final AnimationController _headerCtrl;
+  late final Animation<double> _headerFade;
+  late final Animation<Offset> _headerSlide;
 
   @override
   void initState() {
     super.initState();
     _initNotifications();
+
+    // Petite animation d'entrée pour l'en-tête de la page d'accueil
+    _headerCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 550));
+    _headerFade = CurvedAnimation(parent: _headerCtrl, curve: Curves.easeOut);
+    _headerSlide = Tween<Offset>(begin: const Offset(0, -0.25), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _headerCtrl, curve: Curves.easeOutCubic));
+    _headerCtrl.forward();
   }
 
   Future<void> _initNotifications() async {
@@ -36,6 +48,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   @override
   void dispose() {
     NotificationService.instance.arreterSuivi();
+    _headerCtrl.dispose();
     super.dispose();
   }
 
@@ -104,13 +117,23 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(
-            'Bonjour $userName 👋',
-            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+        title: FadeTransition(
+          opacity: _headerFade,
+          child: SlideTransition(
+            position: _headerSlide,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text(
+                  'Bonjour $userName 👋',
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(width: 8),
+                if (user != null) LoyaltyBadge(uid: user.uid),
+              ]),
+              const Text('Que voulez-vous manger ?', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            ]),
           ),
-          const Text('Que voulez-vous manger ?', style: TextStyle(color: Colors.grey, fontSize: 12)),
-        ]),
+        ),
         actions: [
           // Panier dans l'AppBar si items
           if (_cartCount > 0)

@@ -7,9 +7,17 @@ class AuthService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // Vérifier si l'application est activée par l'administrateur
+  // ⚠️ CORRECTIF CRITIQUE : le statut était lu depuis un document GLOBAL
+  // ('statut/statut'), partagé par TOUS les restaurants si tu déploies
+  // cette même base Firebase pour plusieurs clients (ton objectif SaaS).
+  // Résultat avant correction : couper un restaurant qui ne paie pas
+  // aurait coupé TOUS les restaurants en même temps.
+  // Maintenant : chaque restaurant a son propre document, identifié par
+  // son restaurantId (ex: 'statut/shokugeki', 'statut/pizza_palace'...).
   Future<Map<String, dynamic>> verifierStatutApplication() async {
     try {
-      DocumentSnapshot snap = await _db.collection('statut').doc('statut').get();
+      DocumentSnapshot snap =
+          await _db.collection('statut').doc(AppConfig.restaurantId).get();
       if (snap.exists) {
         return {
           'is_active': snap.get('is_active') ?? false,
@@ -45,7 +53,7 @@ class AuthService {
       );
       
       if (res.user != null) {
-        await _db.collection('clients').doc(res.user!.uid).set({
+        await _db.collection(AppConfig.clients).doc(res.user!.uid).set({
           'nom': nom,
           'email': email,
           'telephone': telephone,

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 const String kAppName = "Shokugeki Menu";
 const String kDeveloperName = "Nagato";
 const String kDeveloperPhone = "+22232652300";
+const String kDeveloperEmail = "uchiwanagato22@gmail.com";
+const String kDeveloperAddress = "Nouakchott, Mauritanie";
 
 const Color kPrimaryColor = Color(0xFF2196F3);
 const Color kSecondaryColor = Color(0xFF1E1E24);
