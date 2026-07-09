@@ -7,6 +7,7 @@ import 'app_config.dart';
 import 'constants.dart';
 import 'promo_service.dart';
 import 'loyalty_service.dart';
+import 'delivery_zones_service.dart';
 
 enum ModeCommande { livraison, surPlace }
 enum ModePaiement { cash, bankily, masrivi }
@@ -28,16 +29,12 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
   List<Map<String, dynamic>> _articles = [];
 
   // Tarifs des livraisons mis à jour pour Nouakchott
-  final Map<String, double> _zonesLivraison = {
-    'Tevragh Zeina': 60,
-    'Ksar': 50,
-    'Arafat': 80,
-    'Dar Naim': 90,
-    'Sebkha': 70,
-    'El Mina': 70,
-    'Riyadh': 80,
-    'Teyarett': 60,
-  };
+  // Zones de livraison — chargées dynamiquement depuis Firebase
+  // (propres à chaque restaurant). En attendant le chargement, ou si
+  // le Directeur n'a encore rien configuré, on utilise les 9 quartiers
+  // de Nouakchott par défaut, pour ne jamais laisser l'écran vide.
+  Map<String, double> _zonesLivraison = DeliveryZonesService.zonesParDefaut;
+  final _deliveryZonesService = DeliveryZonesService();
 
   String _zone = 'Tevragh Zeina';
   ModeCommande _mode = ModeCommande.livraison;
@@ -122,6 +119,14 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
         if (mounted) setState(() => _soldePoints = solde);
       }).catchError((_) {});
     }
+
+    _deliveryZonesService.obtenirZones().then((zones) {
+      if (!mounted || zones.isEmpty) return;
+      setState(() {
+        _zonesLivraison = zones;
+        if (!_zonesLivraison.containsKey(_zone)) _zone = _zonesLivraison.keys.first;
+      });
+    }).catchError((_) {});
   }
 
   @override

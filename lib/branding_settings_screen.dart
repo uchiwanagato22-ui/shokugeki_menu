@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'branding_service.dart';
 import 'constants.dart';
+import 'delivery_zones_service.dart';
 import 'restaurant_config.dart';
 import 'widgets/restaurant_logo.dart';
 
@@ -162,6 +163,16 @@ class _BrandingSettingsScreenState extends State<BrandingSettingsScreen> {
                   _field("WhatsApp (avec indicatif)", _whatsappController),
                   _field("Frais de livraison (MRU)", _fraisController, digits: true),
                   const SizedBox(height: 16),
+                  _section("Quartiers de livraison"),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      "Ajoutez vos propres quartiers avec leurs frais. Sans ça, les 9 quartiers de Nouakchott sont utilisés par défaut.",
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ),
+                  const _ZonesLivraisonEditor(),
+                  const SizedBox(height: 16),
                   _section("Promotions"),
                   _field("Message bandeau promo", _promoController, maxLines: 2),
                   _field("Code promo client", _codePromoController),
@@ -216,6 +227,97 @@ class _BrandingSettingsScreenState extends State<BrandingSettingsScreen> {
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
         ),
       ),
+    );
+  }
+}
+
+// ── Éditeur de zones de livraison ───────────────────────
+// Widget autonome : permet au Directeur d'ajouter, modifier ou
+// supprimer les quartiers de livraison propres à SON restaurant,
+// au lieu d'une liste figée dans le code (voir delivery_zones_service.dart).
+class _ZonesLivraisonEditor extends StatefulWidget {
+  const _ZonesLivraisonEditor();
+
+  @override
+  State<_ZonesLivraisonEditor> createState() => _ZonesLivraisonEditorState();
+}
+
+class _ZonesLivraisonEditorState extends State<_ZonesLivraisonEditor> {
+  final _service = DeliveryZonesService();
+  final _nomCtrl = TextEditingController();
+  final _prixCtrl = TextEditingController();
+  bool _ajout = false;
+
+  @override
+  void dispose() {
+    _nomCtrl.dispose();
+    _prixCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _ajouterZone() async {
+    final nom = _nomCtrl.text.trim();
+    final prix = double.tryParse(_prixCtrl.text.trim());
+    if (nom.isEmpty || prix == null) return;
+    setState(() => _ajout = true);
+    await _service.ajouterOuModifierZone(nom, prix);
+    _nomCtrl.clear();
+    _prixCtrl.clear();
+    if (mounted) setState(() => _ajout = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Map<String, double>>(
+      stream: _service.zonesStream(),
+      builder: (context, snapshot) {
+        final zones = snapshot.data ?? DeliveryZonesService.zonesParDefaut;
+
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: const Color(0xFF1A1A22), borderRadius: BorderRadius.circular(12)),
+          child: Column(children: [
+            ...zones.entries.map((e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(children: [
+                    Expanded(child: Text(e.key, style: const TextStyle(color: Colors.white, fontSize: 13))),
+                    Text('${e.value.toStringAsFixed(0)} MRU', style: const TextStyle(color: kAccentColor, fontSize: 13, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () => _service.supprimerZone(e.key),
+                      child: const Icon(Icons.close, color: Colors.grey, size: 18),
+                    ),
+                  ]),
+                )),
+            const Divider(color: Colors.white12),
+            Row(children: [
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: _nomCtrl,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: const InputDecoration(hintText: 'Quartier', hintStyle: TextStyle(color: Colors.grey), isDense: true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _prixCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: const InputDecoration(hintText: 'MRU', hintStyle: TextStyle(color: Colors.grey), isDense: true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _ajout
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: kAccentColor))
+                  : IconButton(onPressed: _ajouterZone, icon: const Icon(Icons.add_circle, color: kAccentColor)),
+            ]),
+          ]),
+        );
+      },
     );
   }
 }
