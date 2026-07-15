@@ -176,6 +176,7 @@ class _CaissierCard extends StatelessWidget {
     final modeCmd = data['mode_commande']?.toString() ?? 'livraison';
     final articles = data['articles'] as List? ?? [];
     final surPlace = modeCmd == 'sur_place';
+    final numeroTable = data['numero_table']?.toString() ?? '';
     final ref = docId.length > 6 ? docId.substring(0, 6).toUpperCase() : docId.toUpperCase();
 
     return Container(
@@ -200,7 +201,7 @@ class _CaissierCard extends StatelessWidget {
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Commande #$ref', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
               Row(children: [
-                _Badge(label: surPlace ? '🪑 Sur place' : '🛵 $zone', color: surPlace ? Colors.purple : Colors.blue),
+                _Badge(label: surPlace ? (numeroTable.isNotEmpty ? '🪑 Table $numeroTable' : '🪑 Sur place') : '🛵 $zone', color: surPlace ? Colors.purple : Colors.blue),
                 const SizedBox(width: 6),
                 _Badge(label: _labelPaiement(paiement), color: _colorPaiement(paiement)),
               ]),
@@ -219,6 +220,7 @@ class _CaissierCard extends StatelessWidget {
             _InfoLigne(Icons.person, nom),
             if (tel.isNotEmpty) _InfoLigne(Icons.phone, tel),
             if (!surPlace && adresse.isNotEmpty) _InfoLigne(Icons.location_on, adresse),
+            if (surPlace && numeroTable.isNotEmpty) _InfoLigne(Icons.table_bar, 'Table $numeroTable'),
             const SizedBox(height: 10),
 
             // Articles avec images

@@ -135,6 +135,7 @@ class _KitchenTicket extends StatelessWidget {
     final clientNom = data['clientNom']?.toString() ?? data['client_nom']?.toString() ?? 'Client';
     final modeCmd = data['mode_commande']?.toString() ?? 'livraison';
     final surPlace = modeCmd == 'sur_place';
+    final numeroTable = data['numero_table']?.toString() ?? '';
     final note = data['note_client']?.toString() ?? '';
     final ref = docId.length > 6 ? docId.substring(0, 6).toUpperCase() : docId.toUpperCase();
 
@@ -164,7 +165,7 @@ class _KitchenTicket extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-              child: Text(surPlace ? '🪑 Sur place' : '🛵 Livraison',
+              child: Text(surPlace ? (numeroTable.isNotEmpty ? '🪑 Table $numeroTable' : '🪑 Sur place') : '🛵 Livraison',
                   style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
             ),
           ]),

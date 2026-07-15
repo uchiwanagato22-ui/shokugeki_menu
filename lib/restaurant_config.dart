@@ -4,15 +4,23 @@ import 'package:flutter/material.dart';
 //  WHITE-LABEL : UN SEUL FICHIER À MODIFIER PAR RESTAURANT
 // ═══════════════════════════════════════════════════════════════════════════
 //
+//  ⚠️ Un seul Firebase pour TOUS les restaurants (multi-tenant).
+//  Ne JAMAIS créer de nouveau projet Firebase par client — chaque resto
+//  vit isolé dans restaurants/{restaurantId}/... au sein du même Firebase.
+//
 //  Quand tu vends l'app à un nouveau client :
-//  1. Duplique tout le dossier du projet
-//  2. Remplace assets/icon/logo.png par le logo du client
-//  3. Modifie les valeurs ci-dessous (nom, couleurs, ville...)
-//  4. Crée un nouveau projet Firebase pour ce client
-//  5. Remplace firebase_options.dart + google-services.json
-//  6. Change android:label dans android/app/src/main/AndroidManifest.xml
-//  7. Lance : flutter pub run flutter_launcher_icons
-//  8. Build l'APK → c'est l'app unique du restaurant !
+//  1. Crée le restaurant sur le panel admin (bouton "Créer ce restaurant")
+//     → ça crée restaurants/{id} + les PINs staff automatiquement
+//  2. Duplique le dossier du projet Flutter
+//  3. Clique "Copier config Flutter" sur le panel → colle dans
+//     app_config.dart (restaurantId) et constants.dart (kAppName, kPrimaryColor)
+//  4. Remplace assets/icon/logo.png par le logo du client
+//  5. Change android:label dans android/app/src/main/AndroidManifest.xml
+//  6. Lance : flutter pub run flutter_launcher_icons
+//  7. Build l'APK → c'est l'app unique du restaurant !
+//
+//  firebase_options.dart et google-services.json restent IDENTIQUES
+//  pour tous les clients : ne pas y toucher.
 //
 // ═══════════════════════════════════════════════════════════════════════════
 

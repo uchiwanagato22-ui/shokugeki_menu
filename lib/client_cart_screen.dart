@@ -48,6 +48,7 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
   final _nomCtrl = TextEditingController();
   final _telCtrl = TextEditingController();
   final _adresseCtrl = TextEditingController();
+  final _tableCtrl = TextEditingController();
 
   // Variables pour l'animation tactile des boutons
   String? _activeTogglePressed;
@@ -134,6 +135,7 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
     _nomCtrl.dispose(); 
     _telCtrl.dispose(); 
     _adresseCtrl.dispose();
+    _tableCtrl.dispose();
     _promoCtrl.dispose();
     super.dispose();
   }
@@ -154,6 +156,9 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
     if (_mode == ModeCommande.livraison && _adresseCtrl.text.trim().isEmpty) {
       _snack('Veuillez indiquer des repères précis pour la livraison', Colors.redAccent); return;
     }
+    if (_mode == ModeCommande.surPlace && _tableCtrl.text.trim().isEmpty) {
+      _snack('Veuillez indiquer votre numéro de table', Colors.redAccent); return;
+    }
 
     setState(() => _isSubmitting = true);
 
@@ -169,7 +174,7 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
 
     try {
       // Structure unifiée prête pour Firebase
-      await _db.collection(AppConfig.commandes).add({
+      final docRef = await _db.collection(AppConfig.commandes).add({
         'clientId': _auth.currentUser?.uid ?? 'invite',
         'clientNom': _nomCtrl.text.trim(),
         'clientTelephone': _telCtrl.text.trim(),
@@ -187,11 +192,14 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
         'zone': _mode == ModeCommande.livraison ? _zone : 'Sur place',
         'quartier': _mode == ModeCommande.livraison ? _zone : 'Sur place',
         'adresse_reperes': _adresseCtrl.text.trim(),
+        'numero_table': _mode == ModeCommande.surPlace ? _tableCtrl.text.trim() : '',
         'latitude': lat,
         'longitude': lng,
         'date_creation': FieldValue.serverTimestamp(),
         'updated_at': FieldValue.serverTimestamp(),
       });
+
+      final refCommande = docRef.id.length > 6 ? docRef.id.substring(0, 6).toUpperCase() : docRef.id.toUpperCase();
 
       // Débiter les points fidélité utilisés (si applicable), sans bloquer
       // la confirmation de commande si ça échoue.
@@ -215,15 +223,15 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
         builder: (_) => AlertDialog(
           backgroundColor: const Color(0xFF101323),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(children: const [
-            Icon(Icons.check_circle, color: kSuccessColor, size: 28),
-            SizedBox(width: 10),
-            Text('Commande validée !', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          title: Row(children: [
+            const Icon(Icons.check_circle, color: kSuccessColor, size: 28),
+            const SizedBox(width: 10),
+            Expanded(child: Text('Commande #$refCommande', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))),
           ]),
           content: Text(
             _mode == ModeCommande.livraison
                 ? 'Votre commande est en route pour $_zone.\nTotal : ${_total.toStringAsFixed(0)} MRU\nSuivez l\'avancement dans "Mes commandes".'
-                : 'Commande sur place confirmée.\nTotal : ${_total.toStringAsFixed(0)} MRU\nNotre équipe vous prépare cela tout de suite.',
+                : 'Commande sur place confirmée — Table ${_tableCtrl.text.trim()}.\nTotal : ${_total.toStringAsFixed(0)} MRU\nNotre équipe vous prépare cela tout de suite.',
             style: const TextStyle(color: Color(0xFFD1D5DB), height: 1.5),
           ),
           actions: [
@@ -411,6 +419,11 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
                     ),
                     const SizedBox(height: 12),
                     _Champ(ctrl: _adresseCtrl, label: 'Repères d\'adresse précis (Boutique, Carrefour...)', icon: Icons.map_rounded, maxLines: 2),
+                  ],
+
+                  if (_mode == ModeCommande.surPlace) ...[
+                    const SizedBox(height: 12),
+                    _Champ(ctrl: _tableCtrl, label: 'Numéro de table', icon: Icons.table_bar_rounded, type: TextInputType.text),
                   ],
 
                   const SizedBox(height: 20),

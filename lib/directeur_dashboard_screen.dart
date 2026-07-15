@@ -11,6 +11,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'director_ia_service.dart';
 import 'firestore_service.dart';
+import 'menu_pdf_service.dart';
 import 'premium_staff_widgets.dart';
 import 'restaurant_setup_seed.dart';
 import 'widgets/developer_contact_button.dart';
@@ -57,7 +58,7 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen>
 
   // ── Cloudinary ────────────────────────────────────────
   static const String _cloudName = "dr1rbdtph";
-  static const String _uploadPreset = "676d6081-ab92-4e98-b500-3e088776e6ed";
+  static const String _uploadPreset = "shokugeki_preset";
 
   @override
   void initState() {
@@ -409,16 +410,42 @@ class _TabMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: db.collection(AppConfig.menu).orderBy('updated_at', descending: true).snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final docs = snapshot.data!.docs;
-        if (docs.isEmpty) return const Center(child: Text('Menu vide. Ajoutez des plats.', style: TextStyle(color: Colors.grey)));
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.showSnackBar(const SnackBar(content: Text('Génération du PDF...'), duration: Duration(seconds: 2)));
+                try {
+                  await MenuPdfService().genererEtPartager(nomRestaurant: kAppName);
+                } catch (e) {
+                  messenger.showSnackBar(SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red));
+                }
+              },
+              icon: const Icon(Icons.picture_as_pdf_rounded, color: kAccentColor),
+              label: const Text('Exporter le menu en PDF', style: TextStyle(color: kAccentColor)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: kAccentColor),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: db.collection(AppConfig.menu).orderBy('updated_at', descending: true).snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              final docs = snapshot.data!.docs;
+              if (docs.isEmpty) return const Center(child: Text('Menu vide. Ajoutez des plats.', style: TextStyle(color: Colors.grey)));
 
-        return ListView.separated(
-          padding: const EdgeInsets.all(12),
-          itemCount: docs.length,
+              return ListView.separated(
+                padding: const EdgeInsets.all(12),
+                itemCount: docs.length,
           separatorBuilder: (_, __) => const SizedBox(height: 8),
           itemBuilder: (context, i) {
             final doc = docs[i];
@@ -473,8 +500,11 @@ class _TabMenu extends StatelessWidget {
               ]),
             );
           },
-        );
-      },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
