@@ -114,11 +114,24 @@ class _AppScreenWrapperState extends State<AppScreenWrapper> {
   bool _isCheckingStatus = true;
   bool _isAppActive = true;
   String _blockingMessage = "Application temporairement inaccessible.";
+  bool _welcomeChecked = false;
+  bool _showWelcome = false;
 
   @override
   void initState() {
     super.initState();
     _controlerActivationApplication();
+    _checkWelcome();
+  }
+
+  Future<void> _checkWelcome() async {
+    final doit = await WelcomeCharacterScreen.doitAfficher();
+    if (mounted) {
+      setState(() {
+        _showWelcome = doit;
+        _welcomeChecked = true;
+      });
+    }
   }
 
   Future<void> _controlerActivationApplication() async {
@@ -145,7 +158,7 @@ class _AppScreenWrapperState extends State<AppScreenWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isCheckingStatus) {
+    if (_isCheckingStatus || !_welcomeChecked) {
       return const Scaffold(
         body: Center(
           child: Column(
@@ -171,6 +184,10 @@ class _AppScreenWrapperState extends State<AppScreenWrapper> {
 
     if (!_isAppActive) {
       return AppBlockScreen(message: _blockingMessage);
+    }
+
+    if (_showWelcome) {
+      return const WelcomeCharacterScreen();
     }
 
     return const AuthGatewayRouter();

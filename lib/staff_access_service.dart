@@ -1,22 +1,25 @@
 import 'package:flutter/foundation.dart';
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'app_config.dart';
 import 'restaurant_app_config.dart';
 
 // ═══════════════════════════════════════════════════════
-//  STAFF ACCESS SERVICE — Multi-tenant v3 (sécurisé)
+//  STAFF ACCESS SERVICE — Multi-tenant v4 (sécurisé, sans Blaze)
 //  ✅ Ne lit plus JAMAIS "staffCodes" directement depuis le
-//     téléphone : tout passe par la Cloud Function
-//     "verifyStaffCode", qui tourne côté serveur.
+//     téléphone : tout passe par une fonction serveur qui vérifie
+//     le code avec les droits admin (SDK Admin Firebase).
 //  ✅ Ouvre une vraie session Firebase Auth (avec le rôle et le
-//     restaurant comme "claims") après un code valide, pour que
-//     les règles Firestore puissent enfin protéger le menu, les
-//     commandes, les promos, etc. selon le rôle réel du staff.
-//  ⚠️ Le fallback "codes en dur dans l'app" a été retiré : il
-//     rendait cette correction inutile (n'importe qui aurait pu
-//     décompiler l'app et retrouver les codes quand même).
+//     restaurant comme "claims") après un code valide — tes règles
+//     Firestore (estStaff()) fonctionnent sans aucun changement.
+//  ⚠️ Différence avec la v3 : la vérification tourne sur une fonction
+//     Vercel (gratuite, aucune carte bancaire) au lieu d'une Cloud
+//     Function Firebase (qui demande le plan payant Blaze). Le niveau
+//     de sécurité est identique — seul l'hébergeur change.
+//     Une fois Blaze débloqué, tu peux repasser sur Cloud Functions
+//     si tu préfères tout centraliser chez Firebase — pas obligatoire.
 // ═══════════════════════════════════════════════════════
 
 class StaffAccessResult {
@@ -34,14 +37,15 @@ class StaffAccessResult {
 }
 
 class StaffAccessService {
-  StaffAccessService({FirebaseFunctions? functions, FirebaseAuth? auth})
-      : _functions = functions ?? FirebaseFunctions.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+  StaffAccessService({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
 
-  final FirebaseFunctions _functions;
   final FirebaseAuth _auth;
 
-  // Vérification code personnel — via Cloud Function (sécurisé)
+  // ⚠️ Remplace par l'URL de ton projet Vercel une fois déployé
+  // (ex: https://shokugeki-staff-auth.vercel.app/api/verifyStaffCode)
+  static const String _endpoint = 'https://REMPLACE-PAR-TON-URL-VERCEL.vercel.app/api/verifyStaffCode';
+
+  // Vérification code personnel — via fonction serveur (sécurisé)
   Future<StaffAccessResult> verifyCode({
     String? restaurantId,
     required String code,
@@ -58,22 +62,27 @@ class StaffAccessService {
     final targetId = restaurantId ?? AppConfig.restaurantId;
 
     try {
-      final callable = _functions.httpsCallable('verifyStaffCode');
-      final response = await callable.call(<String, dynamic>{
-        'restaurantId': targetId,
-        'code': normalizedCode,
-      });
+      final response = await http.post(
+        Uri.parse(_endpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'restaurantId': targetId, 'code': normalizedCode}),
+      ).timeout(const Duration(seconds: 12));
 
-      final data = Map<String, dynamic>.from(response.data as Map);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 429) {
+        return StaffAccessResult(allowed: false, errorMessage: data['message']?.toString() ?? 'Trop de tentatives.');
+      }
+      if (response.statusCode != 200) {
+        return const StaffAccessResult(allowed: false, errorMessage: 'Code incorrect ou désactivé.');
+      }
+
       final role = staffRoleFromFirestore((data['role'] ?? '').toString());
-
       if (role == null) {
         return const StaffAccessResult(allowed: false, errorMessage: 'Rôle invalide.');
       }
 
       // On échange le jeton temporaire contre une vraie session Firebase.
-      // Sans ça, les écritures du staff (menu, commandes...) seraient
-      // encore vues par Firestore comme venant d'un simple visiteur.
       final token = data['authToken']?.toString();
       if (token != null && token.isNotEmpty) {
         await _auth.signInWithCustomToken(token);
@@ -83,15 +92,6 @@ class StaffAccessService {
         allowed: true,
         role: role,
         staffName: data['staffName']?.toString(),
-      );
-    } on FirebaseFunctionsException catch (e) {
-      debugPrint('StaffAccessService Cloud Function error: ${e.code} ${e.message}');
-      if (e.code == 'resource-exhausted') {
-        return StaffAccessResult(allowed: false, errorMessage: e.message);
-      }
-      return const StaffAccessResult(
-        allowed: false,
-        errorMessage: 'Code incorrect ou désactivé.',
       );
     } catch (e) {
       debugPrint('StaffAccessService error: $e');
