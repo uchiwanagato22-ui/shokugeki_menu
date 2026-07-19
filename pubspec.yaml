@@ -11,52 +11,59 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Design
+  # Design & Icons
   cupertino_icons: ^1.0.8
 
-  # Firebase (versions compatibles)
+  # Base de données et Authentification Firebase (100% GRATUIT)
   firebase_core: ^4.10.0
-  firebase_auth: ^6.5.2
   cloud_firestore: ^6.5.0
+  firebase_auth: ^6.5.2
   firebase_storage: ^13.1.0
   firebase_messaging: ^16.1.2
-  cloud_functions: ^6.3.2
-
-  # PDF / Impression
   pdf: ^3.11.1
   printing: ^5.13.4
 
-  # Images / Cache
+  # Photos & Notifications
   image_picker: ^1.1.2
   cached_network_image: ^3.3.1
-
-  # Notifications locales
   flutter_local_notifications: ^22.0.0
-
-  # Stockage local
   shared_preferences: ^2.5.3
 
-  # GPS / Livraison
+  # Localisation & Cartographie (Pour l'adresse à Nouakchott et le livreur)
   google_maps_flutter: ^2.11.0
   geolocator: ^14.0.2
   url_launcher: ^6.3.1
 
-  # Gemini Chef IA
+  # Intelligence Artificielle (Moteur officiel Google Gemini pour le Chef IA)
   google_generative_ai: ^0.4.0
 
-  # API / Upload
+  # Réseau & Connexion API (Requis pour l'upload Cloudinary du Directeur)
   http: ^1.2.2
-
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.14.3
 
+# Pour changer l'icône d'un nouveau client : remplace le fichier
+# assets/icon/icon.png par son logo (1024x1024, carré), puis lance :
+#   flutter pub run flutter_launcher_icons
+# → régénère automatiquement l'icône pour Android/iOS/Web, toutes
+# tailles, en une seule commande. Ne pas oublier de refaire ça à
+# CHAQUE nouveau restaurant avant de builder son APK.
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/icon/icon.png"
 
 flutter:
   uses-material-design: true
 
+  # Déclaration correcte de tes assets
   assets:
     - assets/images/nagato_avatar.png

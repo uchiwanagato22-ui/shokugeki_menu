@@ -43,7 +43,7 @@ class StaffAccessService {
 
   // ⚠️ Remplace par l'URL de ton projet Vercel une fois déployé
   // (ex: https://shokugeki-staff-auth.vercel.app/api/verifyStaffCode)
-  static const String _endpoint = 'https://REMPLACE-PAR-TON-URL-VERCEL.vercel.app/api/verifyStaffCode';
+  static const String _endpoint = 'https://shokugeki-staff-auth.vercel.app/api/verifyStaffCode';
 
   // Vérification code personnel — via fonction serveur (sécurisé)
   Future<StaffAccessResult> verifyCode({
