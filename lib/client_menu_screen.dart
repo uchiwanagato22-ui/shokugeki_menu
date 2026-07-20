@@ -53,7 +53,8 @@ class _ClientMenuScreenState extends State<ClientMenuScreen> {
         'nom': plat['nom'],
         'prix': (plat['prix'] as num).toDouble(),
         'quantite': 1,
-        'categorie': plat['categorie']
+        'categorie': plat['categorie'],
+        'image': plat['image'] ?? '',
       });
     }
     
