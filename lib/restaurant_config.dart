@@ -16,8 +16,11 @@ import 'package:flutter/material.dart';
 //     app_config.dart (restaurantId) et constants.dart (kAppName, kPrimaryColor)
 //  4. Remplace assets/icon/logo.png par le logo du client
 //  5. Change android:label dans android/app/src/main/AndroidManifest.xml
-//  6. Lance : flutter pub run flutter_launcher_icons
-//  7. Build l'APK → c'est l'app unique du restaurant !
+//  6. ⚠️ Change bankilyNumero et masriviNumero ci-dessous avec les VRAIS
+//     numéros du restaurant client — jamais les tiens, sinon l'argent des
+//     clients t'arrive à toi au lieu du restaurant
+//  7. Lance : flutter pub run flutter_launcher_icons
+//  8. Build l'APK → c'est l'app unique du restaurant !
 //
 //  firebase_options.dart et google-services.json restent IDENTIQUES
 //  pour tous les clients : ne pas y toucher.
@@ -41,6 +44,12 @@ class RestaurantConfig {
   static const String phone = "+222 00 00 00 00";
   static const String whatsapp = "+22200000000";
   static const String horaires = "Lun-Dim : 10h00 - 23h00";
+
+  // ⚠️ Numéros du RESTAURANT CLIENT — jamais les tiens ! L'argent des
+  // commandes Bankily/Masrivi doit arriver chez le restaurant, pas chez
+  // toi. À changer obligatoirement à chaque nouveau client.
+  static const String bankilyNumero = "00000000";
+  static const String masriviNumero = "00000000";
 
   static const String codeDirecteur = "3265";
   static const String codeCaissier = "2300";

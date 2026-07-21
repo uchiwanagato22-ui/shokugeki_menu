@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -5,6 +6,8 @@ import 'package:geolocator/geolocator.dart';
 import 'widgets/developer_contact_button.dart';
 import 'app_config.dart';
 import 'constants.dart';
+import 'restaurant_config.dart';
+import 'branding_service.dart';
 import 'promo_service.dart';
 import 'loyalty_service.dart';
 import 'delivery_zones_service.dart';
@@ -41,9 +44,8 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
   ModePaiement _paiement = ModePaiement.cash;
   bool _isSubmitting = false;
 
-  // Numéros Bankily et Masrivi
-  static const String kBankilyNumero = '32652300';
-  static const String kMasriviNumero = '32652300';
+  // Numéros Bankily et Masrivi — voir restaurant_config.dart
+  // (spécifiques à chaque restaurant client, jamais les tiens)
 
   final _nomCtrl = TextEditingController();
   final _telCtrl = TextEditingController();
@@ -108,11 +110,25 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
     });
   }
 
+  final BrandingService _brandingService = BrandingService();
+  String _bankilyNumero = RestaurantConfig.bankilyNumero;
+  String _masriviNumero = RestaurantConfig.masriviNumero;
+  StreamSubscription<BrandingData>? _brandingSub;
+
   @override
   void initState() {
     super.initState();
     if (widget.cartItems != null) _articles = List.from(widget.cartItems!);
-    
+
+    _brandingSub = _brandingService.watchBranding().listen((b) {
+      if (mounted) {
+        setState(() {
+          _bankilyNumero = b.bankilyNumero;
+          _masriviNumero = b.masriviNumero;
+        });
+      }
+    });
+
     final user = _auth.currentUser;
     if (user?.displayName != null) _nomCtrl.text = user!.displayName!;
     if (user != null) {
@@ -132,6 +148,7 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
 
   @override
   void dispose() {
+    _brandingSub?.cancel();
     _nomCtrl.dispose(); 
     _telCtrl.dispose(); 
     _adresseCtrl.dispose();
@@ -472,9 +489,9 @@ class _ClientCartScreenState extends State<ClientCartScreen> {
                   ]),
 
                   if (_paiement == ModePaiement.bankily)
-                    _PaiInfo(color: const Color(0xFF2E7D32), titre: 'Paiement Bankily ✨', numero: kBankilyNumero),
+                    _PaiInfo(color: const Color(0xFF2E7D32), titre: 'Paiement Bankily ✨', numero: _bankilyNumero),
                   if (_paiement == ModePaiement.masrivi)
-                    _PaiInfo(color: const Color(0xFFB8860B), titre: 'Paiement Masrivi ✨', numero: kMasriviNumero),
+                    _PaiInfo(color: const Color(0xFFB8860B), titre: 'Paiement Masrivi ✨', numero: _masriviNumero),
 
                   const SizedBox(height: 20),
 

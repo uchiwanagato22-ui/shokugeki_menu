@@ -29,6 +29,8 @@ class _BrandingSettingsScreenState extends State<BrandingSettingsScreen> {
   late TextEditingController _promoController;
   late TextEditingController _codePromoController;
   late TextEditingController _reductionController;
+  late TextEditingController _bankilyController;
+  late TextEditingController _masriviController;
   bool _promoActive = true;
   bool _isSaving = false;
   bool _charge = false;
@@ -49,6 +51,8 @@ class _BrandingSettingsScreenState extends State<BrandingSettingsScreen> {
     _promoController = TextEditingController(text: d.promoMessage);
     _codePromoController = TextEditingController(text: d.codePromo);
     _reductionController = TextEditingController(text: '${d.reductionPromoMru}');
+    _bankilyController = TextEditingController(text: d.bankilyNumero);
+    _masriviController = TextEditingController(text: d.masriviNumero);
     _promoActive = d.promoActive;
   }
 
@@ -58,6 +62,7 @@ class _BrandingSettingsScreenState extends State<BrandingSettingsScreen> {
       _nomController, _sloganController, _villeController, _zoneController,
       _adresseController, _horairesController, _fraisController, _telController,
       _whatsappController, _promoController, _codePromoController, _reductionController,
+      _bankilyController, _masriviController,
     ]) {
       c.dispose();
     }
@@ -77,6 +82,8 @@ class _BrandingSettingsScreenState extends State<BrandingSettingsScreen> {
     _promoController.text = b.promoMessage;
     _codePromoController.text = b.codePromo;
     _reductionController.text = '${b.reductionPromoMru}';
+    _bankilyController.text = b.bankilyNumero;
+    _masriviController.text = b.masriviNumero;
     _promoActive = b.promoActive;
   }
 
@@ -98,6 +105,8 @@ class _BrandingSettingsScreenState extends State<BrandingSettingsScreen> {
         promoActive: _promoActive,
         codePromo: _codePromoController.text.trim().toUpperCase(),
         reductionPromoMru: int.parse(_reductionController.text.trim()),
+        bankilyNumero: _bankilyController.text.trim(),
+        masriviNumero: _masriviController.text.trim(),
       ));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -184,6 +193,17 @@ class _BrandingSettingsScreenState extends State<BrandingSettingsScreen> {
                     activeThumbColor: Colors.green,
                     onChanged: (v) => setState(() => _promoActive = v),
                   ),
+                  const SizedBox(height: 16),
+                  _section("Paiement mobile"),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      "⚠️ Ce sont VOS numéros — c'est ici que l'argent des clients arrive.",
+                      style: TextStyle(color: Colors.orangeAccent, fontSize: 12),
+                    ),
+                  ),
+                  _field("Numéro Bankily", _bankilyController, digits: true),
+                  _field("Numéro Masrivi", _masriviController, digits: true),
                   const SizedBox(height: 20),
                   _isSaving
                       ? const Center(child: CircularProgressIndicator(color: kAccentColor))

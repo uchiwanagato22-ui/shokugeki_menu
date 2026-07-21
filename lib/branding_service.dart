@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'app_config.dart';
 import 'restaurant_config.dart';
 
 class BrandingData {
@@ -15,6 +16,8 @@ class BrandingData {
   final bool promoActive;
   final String codePromo;
   final int reductionPromoMru;
+  final String bankilyNumero;
+  final String masriviNumero;
 
   const BrandingData({
     required this.nom,
@@ -30,6 +33,8 @@ class BrandingData {
     required this.promoActive,
     required this.codePromo,
     required this.reductionPromoMru,
+    required this.bankilyNumero,
+    required this.masriviNumero,
   });
 
   String get deliveryLocation => "$ville, $zone";
@@ -48,6 +53,8 @@ class BrandingData {
         promoActive: RestaurantConfig.defaultPromoActive,
         codePromo: RestaurantConfig.codePromo,
         reductionPromoMru: RestaurantConfig.reductionPromoMru,
+        bankilyNumero: RestaurantConfig.bankilyNumero,
+        masriviNumero: RestaurantConfig.masriviNumero,
       );
 
   factory BrandingData.fromFirestore(Map<String, dynamic>? data) {
@@ -67,6 +74,8 @@ class BrandingData {
       promoActive: data['promo_active'] ?? d.promoActive,
       codePromo: data['code_promo'] ?? d.codePromo,
       reductionPromoMru: data['reduction_promo_mru'] ?? d.reductionPromoMru,
+      bankilyNumero: data['bankily_numero'] ?? d.bankilyNumero,
+      masriviNumero: data['masrivi_numero'] ?? d.masriviNumero,
     );
   }
 
@@ -84,19 +93,29 @@ class BrandingData {
         'promo_active': promoActive,
         'code_promo': codePromo,
         'reduction_promo_mru': reductionPromoMru,
+        'bankily_numero': bankilyNumero,
+        'masrivi_numero': masriviNumero,
       };
 }
 
 class BrandingService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // ⚠️ Scopé par restaurant — chaque resto a SA PROPRE config, isolée
+  // des autres. Avant, ce chemin était global ('configuration/branding'),
+  // ce qui aurait fait partager code promo, adresse, etc. entre TOUS
+  // les restaurants dès le 2e client.
+  DocumentReference<Map<String, dynamic>> get _doc => _db
+      .collection('restaurants')
+      .doc(AppConfig.restaurantId)
+      .collection('config')
+      .doc('branding');
+
   Stream<BrandingData> watchBranding() {
-    return _db.collection('configuration').doc('branding').snapshots().map((doc) {
-      return BrandingData.fromFirestore(doc.data());
-    });
+    return _doc.snapshots().map((doc) => BrandingData.fromFirestore(doc.data()));
   }
 
   Future<void> sauvegarderBranding(BrandingData data) async {
-    await _db.collection('configuration').doc('branding').set(data.toFirestore(), SetOptions(merge: true));
+    await _doc.set(data.toFirestore(), SetOptions(merge: true));
   }
 }
