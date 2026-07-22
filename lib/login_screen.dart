@@ -13,6 +13,7 @@ import 'widgets/developer_contact_button.dart';
 import 'constants.dart';
 import 'app_config.dart';
 import 'staff_access_service.dart';
+import 'staff_portal_screen.dart';
 import 'restaurant_app_config.dart';
 
 // ═══════════════════════════════════════════════════════
@@ -166,7 +167,9 @@ class _LoginScreenState extends State<LoginScreen>
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => screen),
+        MaterialPageRoute(
+          builder: (_) => StaffRoleShell(role: result.role!, staffName: result.staffName, child: screen),
+        ),
       );
     } catch (e) {
       _showSnack("Erreur système : $e", isError: true);

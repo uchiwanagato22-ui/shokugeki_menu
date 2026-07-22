@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
 import 'login_screen.dart';
+import 'onboarding_screen.dart';
 import 'constants.dart';
 
 class WelcomeCharacterScreen extends StatefulWidget {
@@ -81,9 +82,11 @@ class _WelcomeCharacterScreenState extends State<WelcomeCharacterScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('welcome_done', true);
     if (!mounted) return;
+
+    final montrerOnboarding = await OnboardingScreen.doitAfficher();
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const LoginScreen(),
+        pageBuilder: (_, __, ___) => montrerOnboarding ? const OnboardingScreen() : const LoginScreen(),
         transitionsBuilder: (_, anim, __, child) => FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 600),
       ),

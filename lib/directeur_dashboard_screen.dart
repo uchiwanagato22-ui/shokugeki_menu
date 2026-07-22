@@ -14,6 +14,8 @@ import 'firestore_service.dart';
 import 'menu_pdf_service.dart';
 import 'premium_staff_widgets.dart';
 import 'restaurant_setup_seed.dart';
+import 'branding_settings_screen.dart';
+import 'stats_screen.dart';
 import 'widgets/developer_contact_button.dart';
 import 'login_screen.dart';
 import 'app_config.dart';
@@ -293,6 +295,20 @@ class _DirectorDashboardScreenState extends State<DirectorDashboardScreen>
           icon: _isSeeding
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : const Icon(Icons.cloud_done),
+        ),
+        IconButton(
+          tooltip: 'Statistiques avancées',
+          icon: const Icon(Icons.bar_chart_rounded),
+          onPressed: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const StatsScreen()));
+          },
+        ),
+        IconButton(
+          tooltip: 'Paramètres (promo, Bankily, Masrivi...)',
+          icon: const Icon(Icons.settings),
+          onPressed: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const BrandingSettingsScreen()));
+          },
         ),
         IconButton(tooltip: 'Déconnexion', icon: const Icon(Icons.logout, color: Colors.redAccent), onPressed: _deconnecter),
       ],

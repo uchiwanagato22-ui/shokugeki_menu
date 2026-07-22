@@ -19,6 +19,9 @@ import 'auth_service.dart';
 import 'client_home_screen.dart';
 import 'constants.dart';
 import 'welcome_character_screen.dart';
+import 'staff_portal_screen.dart';
+import 'staff_access_service.dart';
+import 'splash_screen.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -97,7 +100,7 @@ class ShokugekiMenuApp extends StatelessWidget {
           background: kBackgroundColor,
         ),
       ),
-      home: const AppScreenWrapper(),
+      home: const SplashScreen(child: AppScreenWrapper()),
     );
   }
 }
@@ -330,18 +333,30 @@ class _AuthGatewayRouterState extends State<AuthGatewayRouter> {
 
   // ✅ FIX CRITIQUE : utilise DirectorDashboardScreen (nom réel de la classe)
   Widget _routerVersEcranPersonnel(String role) {
-    switch (role.trim().toLowerCase()) {
+    final cleanRole = role.trim().toLowerCase();
+    Widget screen;
+    StaffRole? staffRole;
+    switch (cleanRole) {
       case 'directeur':
-        return DirectorDashboardScreen();
+        screen = DirectorDashboardScreen();
+        staffRole = StaffRole.directeur;
+        break;
       case 'caissier':
-        return CaissierDashboardScreen();
+        screen = CaissierDashboardScreen();
+        staffRole = StaffRole.caissier;
+        break;
       case 'livreur':
-        return LivreurDashboardScreen();
+        screen = LivreurDashboardScreen();
+        staffRole = StaffRole.livreur;
+        break;
       case 'cuisine':
-        return CuisineScreen();
+        screen = CuisineScreen();
+        staffRole = StaffRole.cuisine;
+        break;
       default:
         return const LoginScreen();
     }
+    return StaffRoleShell(role: staffRole!, child: screen);
   }
 }
 
