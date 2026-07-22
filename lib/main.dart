@@ -21,6 +21,7 @@ import 'constants.dart';
 import 'welcome_character_screen.dart';
 import 'staff_portal_screen.dart';
 import 'staff_access_service.dart';
+import 'restaurant_app_config.dart';
 import 'splash_screen.dart';
 
 @pragma('vm:entry-point')

@@ -59,7 +59,7 @@ class _StaffCodeLoginScreenState extends State<StaffCodeLoginScreen> with Single
   Future<void> _submit() async {
     if (_bloqueJusqua != null) {
       final restant = _bloqueJusqua!.difference(DateTime.now());
-      if (restant.isPositive) {
+      if (restant.inSeconds > 0) {
         setState(() {
           _error = 'Trop de tentatives. Réessayez dans ${restant.inSeconds + 1}s.';
         });
